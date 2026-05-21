@@ -5,425 +5,219 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Agent - 用户评论分析演示</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    background: #0f172a; color: #e2e8f0; line-height: 1.6;
-    min-height: 100vh;
-  }
-  .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
-
-  h1 { font-size: 28px; color: #38bdf8; margin-bottom: 6px; }
-  .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 32px; }
-
-  /* 架构图 */
-  .arch-diagram {
-    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
-    padding: 28px; margin-bottom: 36px;
-  }
-  .arch-diagram h2 { font-size: 16px; color: #94a3b8; margin-bottom: 20px; }
-  .flow-row {
-    display: flex; align-items: center; justify-content: center; gap: 12px;
-    flex-wrap: wrap;
-  }
-  .flow-box {
-    background: #0f172a; border: 2px solid #334155; border-radius: 10px;
-    padding: 14px 18px; text-align: center; min-width: 100px;
-  }
-  .flow-box.llm   { border-color: #a78bfa; background: #1e1b4b; }
-  .flow-box.code  { border-color: #34d399; background: #022c22; }
-  .flow-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-  .flow-title { font-size: 15px; font-weight: 700; margin-top: 4px; }
-  .flow-desc  { font-size: 11px; color: #94a3b8; margin-top: 2px; }
-  .arrow { color: #475569; font-size: 20px; font-weight: 700; }
-
-  /* 预设示例 */
-  .examples-section { margin-bottom: 24px; }
-  .examples-section h2 { font-size: 16px; color: #94a3b8; margin-bottom: 12px; }
-  .example-cards { display: flex; gap: 10px; flex-wrap: wrap; }
-  .example-card {
-    flex: 1; min-width: 200px; background: #1e293b; border: 1px solid #334155;
-    border-radius: 8px; padding: 14px; cursor: pointer; transition: all .2s;
-  }
-  .example-card:hover { border-color: #38bdf8; background: #0c2d48; }
-  .example-card.active { border-color: #38bdf8; background: #0c2d48; box-shadow: 0 0 12px rgba(56,189,248,.15); }
-  .example-card .icon { font-size: 20px; }
-  .example-card .label { font-size: 12px; color: #64748b; margin-top: 4px; }
-  .example-card .text { font-size: 13px; color: #cbd5e1; margin-top: 6px; }
-
-  /* 结果区域 */
-  .results { display: none; }
-  .results.show { display: block; }
-  .step-block {
-    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
-    padding: 20px; margin-bottom: 16px;
-  }
-  .step-header {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
-  }
-  .step-num {
-    background: #38bdf8; color: #0f172a; width: 28px; height: 28px;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 14px; flex-shrink: 0;
-  }
-  .step-title { font-size: 16px; font-weight: 700; }
-
-  .info-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
-  .info-item { flex: 1; min-width: 180px; }
-  .info-item .key { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
-  .info-item .val {
-    font-size: 14px; font-weight: 600; margin-top: 2px;
-    padding: 8px 12px; background: #0f172a; border-radius: 6px; border: 1px solid #1e293b;
-  }
-
-  .raw-json summary {
-    font-size: 12px; color: #64748b; cursor: pointer; user-select: none;
-    margin-bottom: 8px;
-  }
-  .raw-json pre {
-    background: #0f172a; border: 1px solid #334155; border-radius: 6px;
-    padding: 14px; font-size: 12px; overflow-x: auto;
-    color: #34d399;
-  }
-
-  .advice-box {
-    background: #0f172a; border: 1px solid #334155; border-radius: 8px;
-    padding: 18px; font-size: 14px; white-space: pre-wrap; line-height: 1.8;
-  }
-
-  .tag {
-    display: inline-block; padding: 2px 10px; border-radius: 12px;
-    font-size: 12px; font-weight: 600;
-  }
-  .tag-complaint { background: #7f1d1d; color: #fca5a5; }
-  .tag-praise    { background: #14532d; color: #86efac; }
-  .tag-suggestion{ background: #1e3a5f; color: #93c5fd; }
-
-  /* 初始提示 */
-  .demo-tip {
-    background: #1e293b; border: 1px dashed #475569; border-radius: 10px;
-    padding: 28px; text-align: center; color: #94a3b8;
-  }
-  .demo-tip .big { font-size: 48px; margin-bottom: 8px; }
-  .demo-tip p { margin-top: 6px; }
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.6;min-height:100vh}
+.container{max-width:960px;margin:0 auto;padding:40px 20px}
+h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
+.subtitle{color:#94a3b8;font-size:14px;margin-bottom:32px}
+.arch-diagram{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:28px;margin-bottom:36px}
+.arch-diagram h2{font-size:16px;color:#94a3b8;margin-bottom:20px}
+.flow-row{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.flow-box{background:#0f172a;border:2px solid #334155;border-radius:10px;padding:14px 18px;text-align:center;min-width:100px}
+.flow-box.llm{border-color:#a78bfa;background:#1e1b4b}
+.flow-box.code{border-color:#34d399;background:#022c22}
+.flow-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
+.flow-title{font-size:15px;font-weight:700;margin-top:4px}
+.flow-desc{font-size:11px;color:#94a3b8;margin-top:2px}
+.arrow{color:#475569;font-size:20px;font-weight:700}
+.examples-section{margin-bottom:24px}
+.examples-section h2{font-size:16px;color:#94a3b8;margin-bottom:12px}
+.example-cards{display:flex;gap:10px;flex-wrap:wrap}
+.example-card{flex:1;min-width:200px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;cursor:pointer;transition:all .2s}
+.example-card:hover{border-color:#38bdf8;background:#0c2d48}
+.example-card.active{border-color:#38bdf8;background:#0c2d48;box-shadow:0 0 12px rgba(56,189,248,.15)}
+.example-card .icon{font-size:20px}
+.example-card .label{font-size:12px;color:#64748b;margin-top:4px}
+.example-card .text{font-size:13px;color:#cbd5e1;margin-top:6px}
+.results{display:none}
+.results.show{display:block}
+.step-block{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:16px}
+.step-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.step-num{background:#38bdf8;color:#0f172a;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.step-title{font-size:16px;font-weight:700}
+.info-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.info-item{flex:1;min-width:180px}
+.info-item .key{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.info-item .val{font-size:14px;font-weight:600;margin-top:2px;padding:8px 12px;background:#0f172a;border-radius:6px;border:1px solid #1e293b}
+.raw-json summary{font-size:12px;color:#64748b;cursor:pointer;user-select:none;margin-bottom:8px}
+.raw-json pre{background:#0f172a;border:1px solid #334155;border-radius:6px;padding:14px;font-size:12px;overflow-x:auto;color:#34d399}
+.advice-box{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:18px;font-size:14px;white-space:pre-wrap;line-height:1.8}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+.tag-complaint{background:#7f1d1d;color:#fca5a5}
+.tag-praise{background:#14532d;color:#86efac}
+.tag-suggestion{background:#1e3a5f;color:#93c5fd}
+.bar-wrap{background:#0f172a;border-radius:4px;height:20px;overflow:hidden;margin-top:4px}
+.bar-fill{height:100%;border-radius:4px;min-width:2px;transition:width .5s}
+.demo-tip{background:#1e293b;border:1px dashed #475569;border-radius:10px;padding:28px;text-align:center;color:#94a3b8}
+.demo-tip .big{font-size:48px;margin-bottom:8px}
+.demo-tip p{margin-top:6px}
 </style>
 </head>
 <body>
 <div class="container">
+<h1>AI Agent：用户评论分析 + 优化建议生成</h1>
+<p class="subtitle">技术栈：DeepSeek API / Function Calling / Python 编排 / 两阶段 Pipeline</p>
 
-  <h1>AI Agent：用户评论分析 + 优化建议生成</h1>
-  <p class="subtitle">
-    技术栈：DeepSeek API · Function Calling · Python 编排 · 两阶段 Pipeline
-  </p>
-
-  <!-- 架构图 -->
-  <div class="arch-diagram">
-    <h2>Agent 执行架构</h2>
-    <div class="flow-row">
-      <div class="flow-box">
-        <div class="flow-label">输入</div>
-        <div class="flow-title">用户评论</div>
-        <div class="flow-desc">原始文本</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-box llm">
-        <div class="flow-label">第 1 次 API 调用</div>
-        <div class="flow-title">Function Calling</div>
-        <div class="flow-desc">返回结构化分类 JSON</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-box code">
-        <div class="flow-label">编排逻辑（自己写）</div>
-        <div class="flow-title">Prompt 拼装</div>
-        <div class="flow-desc">根据分类选模板</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-box llm">
-        <div class="flow-label">第 2 次 API 调用</div>
-        <div class="flow-title">自然语言生成</div>
-        <div class="flow-desc">返回优化建议文本</div>
-      </div>
-      <div class="arrow">→</div>
-      <div class="flow-box code">
-        <div class="flow-label">输出</div>
-        <div class="flow-title">打包返回</div>
-        <div class="flow-desc">{分类 + 问题 + 建议}</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 预设示例卡片 -->
-  <div class="examples-section">
-    <h2>单条分析 — 点击查看 Agent 完整执行过程（基于真实 API 调用结果）</h2>
-    <div class="example-cards">
-      <div class="example-card" id="card0">
-        <div class="icon">😤</div><div class="label">投诉类示例</div>
-        <div class="text">"快递太慢了，客服不回…"</div>
-      </div>
-      <div class="example-card" id="card1">
-        <div class="icon">😍</div><div class="label">好评类示例</div>
-        <div class="text">"降噪效果绝了，推荐！"</div>
-      </div>
-      <div class="example-card" id="card2">
-        <div class="icon">💡</div><div class="label">建议类示例</div>
-        <div class="text">"加个深色模式吧…"</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 批量分析卡片 -->
-  <div class="examples-section">
-    <h2>批量分析 — 点击查看 5 条评论的汇总报表</h2>
-    <div class="example-cards">
-      <div class="example-card" id="cardBatch">
-        <div class="icon">📊</div><div class="label">批量分析报表</div>
-        <div class="text">5条评论 → 占比统计 + 投诉清单 + 优先级建议</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 单条结果展示（初始隐藏） -->
-  <div class="results" id="results">
-    <div class="step-block">
-      <div class="step-header">
-        <div class="step-num">1</div>
-        <div class="step-title">意图识别 — Function Calling（第 1 次 API 调用）</div>
-      </div>
-      <div class="info-row">
-        <div class="info-item">
-          <div class="key">评论类型</div>
-          <div class="val"><span class="tag" id="tagCategory"></span></div>
-        </div>
-        <div class="info-item">
-          <div class="key">核心问题提炼</div>
-          <div class="val" id="keyIssue"></div>
-        </div>
-      </div>
-      <details class="raw-json">
-        <summary>查看大模型返回的原始 Function Calling JSON</summary>
-        <pre id="rawJson"></pre>
-      </details>
-      <p style="font-size:12px;color:#64748b;margin-top:10px;">
-        大模型没有生成自由文本，而是返回了结构化的 tool_call 参数，
-        由 Python 的 json.loads(tool_call.function.arguments) 解析。
-      </p>
-    </div>
-
-    <div class="step-block">
-      <div class="step-header">
-        <div class="step-num">2</div>
-        <div class="step-title">优化建议生成 — Prompt Engineering（第 2 次 API 调用）</div>
-      </div>
-      <details class="raw-json">
-        <summary>查看发给大模型的 Prompt</summary>
-        <pre id="promptSent" style="color:#a78bfa;"></pre>
-      </details>
-      <div class="advice-box" id="adviceText"></div>
-      <p style="font-size:12px;color:#64748b;margin-top:10px;">
-        这一次是普通聊天（没传 tools），根据第 1 步的分类结果动态选择 Prompt 模板。
-      </p>
-    </div>
-
-    <div class="step-block" style="border-color: #38bdf8;">
-      <div class="step-header">
-        <div class="step-num" style="background:#34d399;">OK</div>
-        <div class="step-title">Agent 执行完成，返回给调用方</div>
-      </div>
-      <div class="advice-box" id="finalJson" style="font-family: monospace; font-size: 13px;"></div>
-    </div>
-  </div>
-
-  <!-- 批量结果展示（初始隐藏） -->
-  <div class="results" id="batchResults">
-    <div class="step-block">
-      <div class="step-header">
-        <div class="step-num">📊</div>
-        <div class="step-title">批量分析 — 输入 5 条评论，逐条调用 analyze_review 后汇总</div>
-      </div>
-      <div class="info-row">
-        <div class="info-item">
-          <div class="key">评论总数</div>
-          <div class="val" id="batchTotal"></div>
-        </div>
-        <div class="info-item">
-          <div class="key">优先处理</div>
-          <div class="val"><span class="tag" id="batchPriorityTag"></span></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="step-block">
-      <div class="step-header">
-        <div class="step-num">1</div>
-        <div class="step-title">各类型占比统计</div>
-      </div>
-      <div id="batchSummary"></div>
-    </div>
-
-    <div class="step-block">
-      <div class="step-header">
-        <div class="step-num">2</div>
-        <div class="step-title">投诉问题清单（所有 complaint 的 key_issue）</div>
-      </div>
-      <div class="advice-box" id="batchComplaints"></div>
-    </div>
-
-    <div class="step-block" style="border-color: #38bdf8;">
-      <div class="step-header">
-        <div class="step-num" style="background:#34d399;">3</div>
-        <div class="step-title">优先级建议（按占比排序，告诉商家先解决什么）</div>
-      </div>
-      <div class="advice-box" id="batchPriorityInfo"></div>
-    </div>
-  </div>
-
-  <!-- 初始提示 -->
-  <div class="demo-tip" id="demoTip">
-    <div class="big">☝</div>
-    <p>点击上方任意一个示例卡片</p>
-    <p>查看 Agent 从输入到输出的完整执行链路</p>
-  </div>
-
+<div class="arch-diagram">
+<h2>Agent 执行架构</h2>
+<div class="flow-row">
+<div class="flow-box"><div class="flow-label">输入</div><div class="flow-title">用户评论</div><div class="flow-desc">原始文本</div></div>
+<div class="arrow">→</div>
+<div class="flow-box llm"><div class="flow-label">第1次API调用</div><div class="flow-title">Function Calling</div><div class="flow-desc">结构化分类JSON</div></div>
+<div class="arrow">→</div>
+<div class="flow-box code"><div class="flow-label">编排逻辑(自己写)</div><div class="flow-title">Prompt拼装</div><div class="flow-desc">根据分类选模板</div></div>
+<div class="arrow">→</div>
+<div class="flow-box llm"><div class="flow-label">第2次API调用</div><div class="flow-title">自然语言生成</div><div class="flow-desc">优化建议文本</div></div>
+<div class="arrow">→</div>
+<div class="flow-box code"><div class="flow-label">输出</div><div class="flow-title">打包返回</div><div class="flow-desc">{分类+问题+建议}</div></div>
+</div>
 </div>
 
-<script src="demo-data.js"></script>
+<div class="examples-section">
+<h2>单条分析 — 点击卡片查看执行过程</h2>
+<div class="example-cards">
+<div class="example-card" id="card0"><div class="icon">[投诉]</div><div class="label">投诉示例</div><div class="text">快递太慢了，客服也不回消息</div></div>
+<div class="example-card" id="card1"><div class="icon">[好评]</div><div class="label">好评示例</div><div class="text">降噪效果绝了，推荐！</div></div>
+<div class="example-card" id="card2"><div class="icon">[建议]</div><div class="label">建议示例</div><div class="text">加个深色模式吧，太刺眼了</div></div>
+</div>
+</div>
+
+<div class="examples-section">
+<h2>批量分析 — 点击查看汇总报表</h2>
+<div class="example-cards">
+<div class="example-card" id="cardBatch"><div class="icon">[报表]</div><div class="label">批量分析报表</div><div class="text">5条评论 → 占比统计 + 投诉清单 + 优先级</div></div>
+</div>
+</div>
+
+<div class="results" id="results">
+<div class="step-block">
+<div class="step-header"><div class="step-num">1</div><div class="step-title">意图识别 — Function Calling(第1次API调用)</div></div>
+<div class="info-row">
+<div class="info-item"><div class="key">评论类型</div><div class="val"><span class="tag" id="tagCategory"></span></div></div>
+<div class="info-item"><div class="key">核心问题提炼</div><div class="val" id="keyIssue"></div></div>
+</div>
+<details class="raw-json"><summary>查看大模型返回的原始Function Calling JSON</summary><pre id="rawJson"></pre></details>
+<p style="font-size:12px;color:#64748b;margin-top:10px">大模型返回结构化tool_call参数，由Python的json.loads(tool_call.function.arguments)解析。</p>
+</div>
+<div class="step-block">
+<div class="step-header"><div class="step-num">2</div><div class="step-title">优化建议生成 — Prompt Engineering(第2次API调用)</div></div>
+<details class="raw-json"><summary>查看发给大模型的Prompt</summary><pre id="promptSent" style="color:#a78bfa"></pre></details>
+<div class="advice-box" id="adviceText"></div>
+<p style="font-size:12px;color:#64748b;margin-top:10px">这一次是普通聊天(没传tools)，根据第1步分类结果动态选择Prompt模板。</p>
+</div>
+<div class="step-block" style="border-color:#38bdf8">
+<div class="step-header"><div class="step-num" style="background:#34d399">OK</div><div class="step-title">Agent执行完成，返回给调用方</div></div>
+<div class="advice-box" id="finalJson" style="font-family:monospace;font-size:13px"></div>
+</div>
+</div>
+
+<div class="results" id="batchResults">
+<div class="step-block">
+<div class="step-header"><div class="step-num">总</div><div class="step-title">批量分析 — 输入5条评论，逐条调用analyze_review后汇总</div></div>
+<div class="info-row">
+<div class="info-item"><div class="key">评论总数</div><div class="val" id="batchTotal"></div></div>
+<div class="info-item"><div class="key">优先处理</div><div class="val"><span class="tag" id="batchPriorityTag"></span></div></div>
+</div>
+</div>
+<div class="step-block">
+<div class="step-header"><div class="step-num">1</div><div class="step-title">各类型占比统计</div></div>
+<div id="batchSummary"></div>
+</div>
+<div class="step-block">
+<div class="step-header"><div class="step-num">2</div><div class="step-title">投诉问题清单(所有complaint的key_issue)</div></div>
+<div class="advice-box" id="batchComplaints"></div>
+</div>
+<div class="step-block" style="border-color:#38bdf8">
+<div class="step-header"><div class="step-num" style="background:#34d399">3</div><div class="step-title">优先级建议</div></div>
+<div class="advice-box" id="batchPriorityInfo"></div>
+</div>
+</div>
+
+<div class="demo-tip" id="demoTip"><div class="big">?</div><p>点击上方任意一个示例卡片</p><p>查看Agent从输入到输出的完整执行链路</p></div>
+</div>
+
 <script>
-(function() {
-  // ---- 数据来自 demo-data.js 中的 DEMO_EXAMPLES 全局变量 ----
-  var examples = DEMO_EXAMPLES;
+var EXAMPLES = [{"review": "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息", "category": "complaint", "key_issue": "发货速度极慢，等待一周未到货，且客服不回复消息", "advice": "1. 建立承诺时效+实时预警机制：在商品详情页明确标注最晚发货时间(48小时内)，接入ERP设置超时预警并自动触发补偿\n\n2. 设置客服响应SLA：所有消息10秒内机器人自动回复，人工首次响应不超过30分钟，离线时段自动转工单\n\n3. 实施物流透明化+主动安抚策略：自动推送物流节点，超72小时自动道歉+补偿，设置催单绿色通道\n\n总结：承诺清晰、响应及时、主动安抚，才能将投诉转化为信任。"}, {"review": "这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！", "category": "praise", "key_issue": "耳机降噪效果出色，地铁噪音完全隔绝，用户强烈推荐", "advice": "1. 将地铁噪音痛点升级为全场景降噪体验：制作通勤/办公室/居家场景对比视频，展示佩戴前后差异\n\n2. 用户证言收集：在详情页展示不同场景真实反馈\n\n3. 技术科普建立壁垒：介绍前馈+后馈双麦克风混合降噪技术，说明如何精准捕捉并抵消低频噪音\n\n总结：引导用户从地铁降噪好联想到全场景都能搞定。"}, {"review": "建议你们加一个深色模式，晚上刷商品太刺眼了", "category": "suggestion", "key_issue": "建议增加深色模式，解决夜间浏览商品时屏幕刺眼的问题", "advice": "一、技术可行性：前端通过CSS变量/主题切换库可实现，开发成本低，预估设计1-2周+开发3-5天\n\n二、回应方向：1.感谢认可 2.说明进展(预计下版本上线) 3.临时替代方案(开启系统深色模式/护眼模式) 4.邀请内测\n\n三、附加：分阶段上线(先基础版再迭代)、支持跟随系统主题自动切换"}];
 
-  var categoryMap = {
-    complaint:  { label: '投诉', cls: 'tag-complaint' },
-    praise:     { label: '好评', cls: 'tag-praise' },
-    suggestion: { label: '建议', cls: 'tag-suggestion' }
-  };
+var catMap = {
+  complaint:  { label: "投诉", cls: "tag-complaint" },
+  praise:     { label: "好评", cls: "tag-praise" },
+  suggestion: { label: "建议", cls: "tag-suggestion" }
+};
 
-  // ---- 给卡片绑定点击事件 ----
-  document.getElementById('card0').addEventListener('click', function() { showExample(0); });
-  document.getElementById('card1').addEventListener('click', function() { showExample(1); });
-  document.getElementById('card2').addEventListener('click', function() { showExample(2); });
-  document.getElementById('cardBatch').addEventListener('click', showBatch);
+function showExample(idx) {
+  var ex = EXAMPLES[idx];
+  document.getElementById("card0").classList.toggle("active", idx===0);
+  document.getElementById("card1").classList.toggle("active", idx===1);
+  document.getElementById("card2").classList.toggle("active", idx===2);
+  document.getElementById("cardBatch").classList.remove("active");
+  document.getElementById("demoTip").style.display = "none";
+  document.getElementById("batchResults").classList.remove("show");
+  document.getElementById("results").classList.add("show");
 
-  window.showExample = function(idx) {
-    var ex = examples[idx];
+  var cat = catMap[ex.category];
+  var t = document.getElementById("tagCategory");
+  t.textContent = cat.label;
+  t.className = "tag " + cat.cls;
+  document.getElementById("keyIssue").textContent = ex.key_issue;
 
-    // 卡片选中高亮
-    ['card0','card1','card2'].forEach(function(id, i) {
-      document.getElementById(id).classList.toggle('active', i === idx);
-    });
-    document.getElementById('cardBatch').classList.remove('active');
+  document.getElementById("rawJson").textContent = JSON.stringify({category:ex.category, key_issue:ex.key_issue}, null, 2);
 
-    // 隐藏初始提示，显示结果面板
-    document.getElementById('demoTip').style.display = 'none';
-    document.getElementById('batchResults').classList.remove('show');
-    document.getElementById('results').classList.add('show');
+  var prompts = {};
+  prompts.complaint = "商家收到投诉：" + ex.key_issue + "，给出3条具体改进建议";
+  prompts.praise = "商家收到好评：" + ex.key_issue + "，给出1条如何保持并放大优势的建议";
+  prompts.suggestion = "用户提出建议：" + ex.key_issue + "，评估可行性并给出回应方向";
+  document.getElementById("promptSent").textContent = prompts[ex.category];
+  document.getElementById("adviceText").textContent = ex.advice;
+  document.getElementById("finalJson").textContent = JSON.stringify({category:ex.category, key_issue:ex.key_issue, advice:ex.advice.substring(0,200)+"..."}, null, 2);
+  document.getElementById("results").scrollIntoView({behavior:"smooth", block:"start"});
+}
 
-    // ---- Step 1 数据填充 ----
-    var cat = categoryMap[ex.category];
-    var tagEl = document.getElementById('tagCategory');
-    tagEl.textContent = cat.label;
-    tagEl.className = 'tag ' + cat.cls;
+function showBatch() {
+  document.getElementById("card0").classList.remove("active");
+  document.getElementById("card1").classList.remove("active");
+  document.getElementById("card2").classList.remove("active");
+  document.getElementById("cardBatch").classList.add("active");
+  document.getElementById("demoTip").style.display = "none";
+  document.getElementById("results").classList.remove("show");
+  document.getElementById("batchResults").classList.add("show");
 
-    document.getElementById('keyIssue').textContent = ex.key_issue;
+  document.getElementById("batchTotal").textContent = "5 条";
 
-    document.getElementById('rawJson').textContent = JSON.stringify({
-      category: ex.category,
-      key_issue: ex.key_issue
-    }, null, 2);
+  var pt = document.getElementById("batchPriorityTag");
+  pt.textContent = "投诉";
+  pt.className = "tag tag-complaint";
 
-    // ---- Step 2 数据填充 ----
-    var prompts = {
-      complaint:  '商家收到投诉：' + ex.key_issue + '，给出3条具体改进建议',
-      praise:     '商家收到好评：' + ex.key_issue + '，给出1条如何保持并放大优势的建议',
-      suggestion: '用户提出建议：' + ex.key_issue + '，评估可行性并给出回应方向'
-    };
-    document.getElementById('promptSent').textContent = prompts[ex.category];
-    document.getElementById('adviceText').textContent = ex.advice;
+  var summary = {complaint:{count:2,pct:40}, praise:{count:2,pct:40}, suggestion:{count:1,pct:20}};
+  var labels = {complaint:"投诉", praise:"好评", suggestion:"建议"};
+  var colors = {complaint:"#fca5a5", praise:"#86efac", suggestion:"#93c5fd"};
+  var h = "";
+  for (var k in summary) {
+    var d = summary[k];
+    h += "<div style=\"margin-bottom:12px\"><div style=\"display:flex;justify-content:space-between;margin-bottom:2px\"><span>" + labels[k] + "</span><span><b>" + d.count + "</b> (" + d.pct + "%)</span></div>";
+    h += "<div class=\"bar-wrap\"><div class=\"bar-fill\" style=\"background:" + colors[k] + ";width:" + (d.pct*3) + "px\"></div></div></div>";
+  }
+  document.getElementById("batchSummary").innerHTML = h;
 
-    // ---- 最终 JSON ----
-    document.getElementById('finalJson').textContent = JSON.stringify({
-      category: ex.category,
-      key_issue: ex.key_issue,
-      advice: ex.advice.substring(0, 200) + '...'
-    }, null, 2);
+  var issues = [
+    "发货速度极慢，等待一周未到货，且客服不回复消息",
+    "衣服颜色与图片相差太多，导致退货"
+  ];
+  var ci = "";
+  for (var i=0; i<issues.length; i++) {
+    ci += "<div style=\"padding:6px 0;border-bottom:1px solid #1e293b\">" + (i+1) + ". " + issues[i] + "</div>";
+  }
+  document.getElementById("batchComplaints").innerHTML = ci;
 
-    // 滚动到结果区
-    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  document.getElementById("batchPriorityInfo").innerHTML = "<b>优先处理：投诉类</b><br><br>投诉类占比最高(40.0%)，与好评并列但投诉影响更大，需优先处理。<br><br>建议：先将投诉类问题按key_issue归类，找出共性(如物流、客服)，由运营团队逐项制定改进方案并设定 SLA。";
+  document.getElementById("batchResults").scrollIntoView({behavior:"smooth", block:"start"});
+}
 
-  // ---- 批量分析 ----
-  window.showBatch = function() {
-    // 高亮批量卡片
-    ['card0','card1','card2'].forEach(function(id) {
-      document.getElementById(id).classList.remove('active');
-    });
-    document.getElementById('cardBatch').classList.add('active');
-
-    // 显示批量结果面板，隐藏单条结果面板
-    document.getElementById('demoTip').style.display = 'none';
-    document.getElementById('results').classList.remove('show');
-    document.getElementById('batchResults').classList.add('show');
-
-    // ---- 批量数据（预计算好的，来自真实 API 调用）----
-    var total = 5;
-    var summary = {
-      complaint:  { count: 2, percentage: 40.0 },
-      praise:     { count: 2, percentage: 40.0 },
-      suggestion: { count: 1, percentage: 20.0 }
-    };
-    var complaintIssues = [
-      '发货速度极慢，等待一周未到货，且客服不回复消息',
-      '衣服颜色与图片相差太多，导致退货，另一件尚可'
-    ];
-    var priority = 'complaint';
-    var priorityReason = '投诉类占比最高（40.0%），与好评并列但投诉影响更大，需优先处理';
-
-    // ---- 填充数据 ----
-    document.getElementById('batchTotal').textContent = total + ' 条';
-
-    var pTag = document.getElementById('batchPriorityTag');
-    pTag.textContent = '投诉';
-    pTag.className = 'tag tag-complaint';
-
-    // 各类型占比（带简易柱状图）
-    var labelMap = { complaint: '投诉', praise: '好评', suggestion: '建议' };
-    var colors = { complaint: '#fca5a5', praise: '#86efac', suggestion: '#93c5fd' };
-    var html = '';
-    for (var cat in summary) {
-      var d = summary[cat];
-      var barW = Math.max(d.percentage * 3, 2); // 百分比 x 3 = 条形宽度(px)，最小 2px
-      html += '<div style="margin-bottom:12px;">';
-      html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
-      html += '<span>' + labelMap[cat] + '</span>';
-      html += '<span><b>' + d.count + '</b> 条 (' + d.percentage + '%)</span>';
-      html += '</div>';
-      html += '<div style="background:#0f172a;border-radius:4px;height:20px;overflow:hidden;">';
-      html += '<div style="background:' + colors[cat] + ';height:100%;width:' + barW + 'px;border-radius:4px;min-width:2px;"></div>';
-      html += '</div></div>';
-    }
-    document.getElementById('batchSummary').innerHTML = html;
-
-    // 投诉清单
-    var complaintHtml = '';
-    for (var i = 0; i < complaintIssues.length; i++) {
-      complaintHtml += '<div style="padding:6px 0;border-bottom:1px solid #1e293b;">';
-      complaintHtml += (i + 1) + '. ' + complaintIssues[i];
-      complaintHtml += '</div>';
-    }
-    document.getElementById('batchComplaints').innerHTML =
-      complaintHtml || '无投诉，用户满意度良好';
-
-    // 优先级建议
-    document.getElementById('batchPriorityInfo').innerHTML =
-      '<b>优先处理：投诉类</b><br><br>' +
-      priorityReason + '<br><br>' +
-      '建议：先将投诉类问题按 key_issue 归类，找出共性（如物流、客服），' +
-      '由运营团队逐项制定改进方案并设定 SLA。';
-
-    // 滚动到批量结果区
-    document.getElementById('batchResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-})();
+// 绑定事件
+document.getElementById("card0").onclick = function(){ showExample(0); };
+document.getElementById("card1").onclick = function(){ showExample(1); };
+document.getElementById("card2").onclick = function(){ showExample(2); };
+document.getElementById("cardBatch").onclick = showBatch;
 </script>
 </body>
 </html>

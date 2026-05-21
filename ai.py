@@ -91,7 +91,7 @@ tools = [
             #     "现在该不该调用这个工具"。
             # 写得越清楚，大模型越不会乱调。
             # 类比：函数注释/docstring，告诉调用者什么时候用这个函数
-            "description": "将用户评论分类为：complaint（投诉）/ praise（好评）/ suggestion（建议）",
+            "description": "将用户评论分类为：complaint（投诉）/ praise（好评）/ suggestion（建议），同时识别讽刺/反语表达",
 
             # ---------- parameters ----------
             # 含义：这个工具的"入参说明书"——大模型调用它时需要传什么参数
@@ -150,6 +150,11 @@ tools = [
                         #     就知道要把评论里最重要的信息提炼成一句话填到这里
                         # 一个参数可以不写 enum（不是所有参数都需要限值）
                         "description": "核心问题或亮点，一句话"
+                    },
+
+                    "is_sarcastic": {
+                        "type": "boolean",
+                        "description": "是否检测到反话/讽刺语气（表面夸奖实际抱怨）"
                     }
                 },
 
@@ -158,7 +163,7 @@ tools = [
                 # 写在 required 里的参数，大模型保证一定会返回
                 # 不在这个列表里的参数 = 可选参数
                 # 类比：Python 函数没有默认值的参数 = required = True
-                "required": ["category", "key_issue"]
+                "required": ["category", "key_issue", "is_sarcastic"]
             }
         }
     }
@@ -202,6 +207,7 @@ def analyze_review(review_text):
         #     "assistant" = AI 之前的回复
         #   - content：说了什么内容
         messages=[
+            {"role": "system", "content": "你是一个电商评论分类助手。需要将用户评论分类为 complaint（投诉）/ praise（好评）/ suggestion（建议）。\n\n特别注意：有些用户会用反话（讽刺、反语）表达不满。表面上在夸奖，实际含义是负面的。需识别这类表达并正确分类为 complaint。\n\n反话识别示例：\n示例1-\"哇发货真的快呢，等了三周才到\" → complaint，讽刺发货慢\n示例2-\"客服超级耐心，问了五次都没人回\" → complaint，讽刺客服不回复\n示例3-\"包装很精致，碎了一半到货\" → complaint，讽刺包装差导致破损\n\n正常好评如\"物流很快第二天就到了\"应分类为 praise，非反话。"},
             {"role": "user", "content": f"分析这条用户评论：{review_text}"}
             # ↑ review_text 是外部传进来的，f-string 拼进去
         ],
@@ -260,6 +266,7 @@ def analyze_review(review_text):
 
     category  = args["category"]      # "complaint" / "praise" / "suggestion" 三选一
     key_issue = args["key_issue"]     # 大模型从评论中提炼的一句话关键信息
+    is_sarcastic = args.get("is_sarcastic", False)  # 是否反话/讽刺
 
     # ============================================================
     # 你的业务逻辑：根据分类拼不同的 Prompt
@@ -297,9 +304,10 @@ def analyze_review(review_text):
     # 【打包返回】
     #   把两次调用 + 手工处理的结果汇总成一个 dict，对外就是一个干净的接口
     return {
-        "category":  category,   # 投诉/好评/建议
-        "key_issue": key_issue,  # 一句话提炼
-        "advice":    advice      # 优化建议
+        "category":     category,      # 投诉/好评/建议
+        "key_issue":    key_issue,     # 一句话提炼
+        "is_sarcastic": is_sarcastic,  # 是否反话
+        "advice":       advice         # 优化建议
     }
 
 
@@ -435,6 +443,7 @@ if __name__ == "__main__":
 
     print(f"  评论类型：{result['category']}")
     print(f"  核心问题：{result['key_issue']}")
+    print(f"  是否反话：{result['is_sarcastic']}")
     print(f"  优化建议：\n{result['advice']}")
 
     # ---- 批量测试 ----
