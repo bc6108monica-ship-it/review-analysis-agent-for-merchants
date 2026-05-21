@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agent - 用户评论分析演示</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #0f172a; color: #e2e8f0; line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 40px 20px; }
+
+  h1 { font-size: 28px; color: #38bdf8; margin-bottom: 6px; }
+  .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 32px; }
+
+  /* 架构图 */
+  .arch-diagram {
+    background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+    padding: 28px; margin-bottom: 36px;
+  }
+  .arch-diagram h2 { font-size: 16px; color: #94a3b8; margin-bottom: 20px; }
+  .flow-row {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .flow-box {
+    background: #0f172a; border: 2px solid #334155; border-radius: 10px;
+    padding: 14px 18px; text-align: center; min-width: 100px;
+  }
+  .flow-box.llm   { border-color: #a78bfa; background: #1e1b4b; }
+  .flow-box.code  { border-color: #34d399; background: #022c22; }
+  .flow-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+  .flow-title { font-size: 15px; font-weight: 700; margin-top: 4px; }
+  .flow-desc  { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .arrow { color: #475569; font-size: 20px; font-weight: 700; }
+
+  /* 预设示例 */
+  .examples-section { margin-bottom: 24px; }
+  .examples-section h2 { font-size: 16px; color: #94a3b8; margin-bottom: 12px; }
+  .example-cards { display: flex; gap: 10px; flex-wrap: wrap; }
+  .example-card {
+    flex: 1; min-width: 200px; background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 14px; cursor: pointer; transition: all .2s;
+  }
+  .example-card:hover { border-color: #38bdf8; background: #0c2d48; }
+  .example-card.active { border-color: #38bdf8; background: #0c2d48; box-shadow: 0 0 12px rgba(56,189,248,.15); }
+  .example-card .icon { font-size: 20px; }
+  .example-card .label { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .example-card .text { font-size: 13px; color: #cbd5e1; margin-top: 6px; }
+
+  /* 结果区域 */
+  .results { display: none; }
+  .results.show { display: block; }
+  .step-block {
+    background: #1e293b; border: 1px solid #334155; border-radius: 10px;
+    padding: 20px; margin-bottom: 16px;
+  }
+  .step-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+  }
+  .step-num {
+    background: #38bdf8; color: #0f172a; width: 28px; height: 28px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; flex-shrink: 0;
+  }
+  .step-title { font-size: 16px; font-weight: 700; }
+
+  .info-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .info-item { flex: 1; min-width: 180px; }
+  .info-item .key { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .5px; }
+  .info-item .val {
+    font-size: 14px; font-weight: 600; margin-top: 2px;
+    padding: 8px 12px; background: #0f172a; border-radius: 6px; border: 1px solid #1e293b;
+  }
+
+  .raw-json summary {
+    font-size: 12px; color: #64748b; cursor: pointer; user-select: none;
+    margin-bottom: 8px;
+  }
+  .raw-json pre {
+    background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+    padding: 14px; font-size: 12px; overflow-x: auto;
+    color: #34d399;
+  }
+
+  .advice-box {
+    background: #0f172a; border: 1px solid #334155; border-radius: 8px;
+    padding: 18px; font-size: 14px; white-space: pre-wrap; line-height: 1.8;
+  }
+
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 600;
+  }
+  .tag-complaint { background: #7f1d1d; color: #fca5a5; }
+  .tag-praise    { background: #14532d; color: #86efac; }
+  .tag-suggestion{ background: #1e3a5f; color: #93c5fd; }
+
+  /* 初始提示 */
+  .demo-tip {
+    background: #1e293b; border: 1px dashed #475569; border-radius: 10px;
+    padding: 28px; text-align: center; color: #94a3b8;
+  }
+  .demo-tip .big { font-size: 48px; margin-bottom: 8px; }
+  .demo-tip p { margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>AI Agent：用户评论分析 + 优化建议生成</h1>
+  <p class="subtitle">
+    技术栈：DeepSeek API · Function Calling · Python 编排 · 两阶段 Pipeline
+  </p>
+
+  <!-- 架构图 -->
+  <div class="arch-diagram">
+    <h2>Agent 执行架构</h2>
+    <div class="flow-row">
+      <div class="flow-box">
+        <div class="flow-label">输入</div>
+        <div class="flow-title">用户评论</div>
+        <div class="flow-desc">原始文本</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="flow-box llm">
+        <div class="flow-label">第 1 次 API 调用</div>
+        <div class="flow-title">Function Calling</div>
+        <div class="flow-desc">返回结构化分类 JSON</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="flow-box code">
+        <div class="flow-label">编排逻辑（自己写）</div>
+        <div class="flow-title">Prompt 拼装</div>
+        <div class="flow-desc">根据分类选模板</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="flow-box llm">
+        <div class="flow-label">第 2 次 API 调用</div>
+        <div class="flow-title">自然语言生成</div>
+        <div class="flow-desc">返回优化建议文本</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="flow-box code">
+        <div class="flow-label">输出</div>
+        <div class="flow-title">打包返回</div>
+        <div class="flow-desc">{分类 + 问题 + 建议}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 预设示例卡片 -->
+  <div class="examples-section">
+    <h2>点击查看 Agent 完整执行过程（基于真实 API 调用结果）</h2>
+    <div class="example-cards">
+      <div class="example-card" id="card0">
+        <div class="icon">😤</div><div class="label">投诉类示例</div>
+        <div class="text">"快递太慢了，客服不回…"</div>
+      </div>
+      <div class="example-card" id="card1">
+        <div class="icon">😍</div><div class="label">好评类示例</div>
+        <div class="text">"降噪效果绝了，推荐！"</div>
+      </div>
+      <div class="example-card" id="card2">
+        <div class="icon">💡</div><div class="label">建议类示例</div>
+        <div class="text">"加个深色模式吧…"</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 结果展示（初始隐藏） -->
+  <div class="results" id="results">
+    <div class="step-block">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">意图识别 — Function Calling（第 1 次 API 调用）</div>
+      </div>
+      <div class="info-row">
+        <div class="info-item">
+          <div class="key">评论类型</div>
+          <div class="val"><span class="tag" id="tagCategory"></span></div>
+        </div>
+        <div class="info-item">
+          <div class="key">核心问题提炼</div>
+          <div class="val" id="keyIssue"></div>
+        </div>
+      </div>
+      <details class="raw-json">
+        <summary>查看大模型返回的原始 Function Calling JSON</summary>
+        <pre id="rawJson"></pre>
+      </details>
+      <p style="font-size:12px;color:#64748b;margin-top:10px;">
+        大模型没有生成自由文本，而是返回了结构化的 tool_call 参数，
+        由 Python 的 json.loads(tool_call.function.arguments) 解析。
+      </p>
+    </div>
+
+    <div class="step-block">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">优化建议生成 — Prompt Engineering（第 2 次 API 调用）</div>
+      </div>
+      <details class="raw-json">
+        <summary>查看发给大模型的 Prompt</summary>
+        <pre id="promptSent" style="color:#a78bfa;"></pre>
+      </details>
+      <div class="advice-box" id="adviceText"></div>
+      <p style="font-size:12px;color:#64748b;margin-top:10px;">
+        这一次是普通聊天（没传 tools），根据第 1 步的分类结果动态选择 Prompt 模板。
+      </p>
+    </div>
+
+    <div class="step-block" style="border-color: #38bdf8;">
+      <div class="step-header">
+        <div class="step-num" style="background:#34d399;">OK</div>
+        <div class="step-title">Agent 执行完成，返回给调用方</div>
+      </div>
+      <div class="advice-box" id="finalJson" style="font-family: monospace; font-size: 13px;"></div>
+    </div>
+  </div>
+
+  <!-- 初始提示 -->
+  <div class="demo-tip" id="demoTip">
+    <div class="big">☝</div>
+    <p>点击上方任意一个示例卡片</p>
+    <p>查看 Agent 从输入到输出的完整执行链路</p>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     数据层：用 <script type="application/json"> 存放示例数据
+     好处：JSON 对内部双引号天然转义为 \"，不会破坏 JS 语法
+     ============================================================ -->
+<script type="application/json" id="examplesData">
+[
+  {
+    "review": "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息",
+    "category": "complaint",
+    "key_issue": "发货速度极慢，等待一周未到货，且客服不回复消息",
+    "advice": "针对您提到的【发货速度极慢、等待一周未到货、客服不回复】的投诉，以下是3条具体且可落地的改进建议：\n\n1. 建立承诺时效+实时预警机制\n   - 在商品详情页明确标注最晚发货时间（如：48小时内发货）\n   - 接入ERP系统设置超时预警：超过承诺时间自动提醒仓库和客服\n   - 自动触发补偿（如发放5元优惠券或赠送小礼品）\n\n2. 设置客服响应SLA\n   - 强制自动回复：所有客户消息在10秒内必须由机器人回复\n   - 人工响应时效考核：首次响应不超过30分钟，问题解决不超过4小时\n   - 离线时段自动转工单，确保24小时内有人跟进\n\n3. 实施物流透明化+主动安抚策略\n   - 发货后自动推送物流节点（已揽收→已出库→派送中）\n   - 物流超72小时未更新时，系统自动道歉+补偿\n   - 设置催单绿色通道，标记高优先级2小时内处理\n\n总结：承诺清晰、响应及时、主动安抚，才能将投诉转化为信任。"
+  },
+  {
+    "review": "这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！",
+    "category": "praise",
+    "key_issue": "耳机降噪效果出色，地铁噪音完全隔绝，用户强烈推荐",
+    "advice": "收到这样的好评，说明你的产品在【极致降噪】这个核心卖点上已经建立了很强的用户认知。为了保持并放大这一优势，建议采取【场景化深度绑定 + 技术可视化传播】的策略：\n\n1. 将【地铁噪音】这个痛点场景升级为【全场景降噪体验】\n   - 制作对比视频：通勤/办公室/居家场景下佩戴前后对比\n   - 展示周围人声、键盘声被过滤，用户能专注工作\n\n2. 用户证言收集\n   - 在商品详情页展示不同场景下的真实反馈\n   - 如：戴着它在高铁上睡觉，完全听不见隔壁小孩哭闹\n\n3. 技术科普建立壁垒\n   - 介绍【前馈+后馈双麦克风混合降噪技术】\n   - 说明如何精准捕捉并抵消地铁、飞机等低频噪音\n\n总结：不要只停留在【地铁降噪好】，要引导用户想象——既然地铁那么吵都能搞定，那办公室、咖啡厅、家里一定更没问题。"
+  },
+  {
+    "review": "建议你们加一个深色模式，晚上刷商品太刺眼了",
+    "category": "suggestion",
+    "key_issue": "建议增加深色模式，解决夜间浏览商品时屏幕刺眼的问题",
+    "advice": "针对用户提出的【增加深色模式以解决夜间浏览刺眼问题】的建议：\n\n一、技术可行性\n- 前端：主流框架（React/Vue）通过CSS变量或主题切换库可实现，开发成本低\n- 后端：增加用户配置表字段（theme_preference），改动极小\n- 兼容性：需测试不同浏览器及设备的显示效果\n- 预估投入：设计1-2周，开发3-5天，测试2天\n\n二、回应方向\n1. 感谢认可：非常感谢您的建议！深色模式是提升夜间使用体验的重要功能\n2. 说明进展：团队正在评估技术方案，预计下个版本上线\n3. 临时替代方案：建议先尝试手机系统深色模式或开启护眼模式/夜间滤镜\n4. 邀请内测：如果您愿意参与内测，我们将优先为您开放测试权限\n\n三、附加建议\n- 分阶段上线：先基础版（切换背景/文字色），再迭代细节\n- 智能切换：支持跟随系统主题自动切换\n- 用户教育：上线后引导用户开启并强调护眼价值"
+  }
+]
+</script>
+
+<script>
+(function() {
+  // ---- 从 JSON 数据块安全读取示例数据（不会有引号冲突）----
+  var examples = JSON.parse(document.getElementById('examplesData').textContent);
+
+  var categoryMap = {
+    complaint:  { label: '投诉', cls: 'tag-complaint' },
+    praise:     { label: '好评', cls: 'tag-praise' },
+    suggestion: { label: '建议', cls: 'tag-suggestion' }
+  };
+
+  // ---- 给三张卡片绑定点击事件（不用 onclick 属性）----
+  document.getElementById('card0').addEventListener('click', function() { showExample(0); });
+  document.getElementById('card1').addEventListener('click', function() { showExample(1); });
+  document.getElementById('card2').addEventListener('click', function() { showExample(2); });
+
+  window.showExample = function(idx) {
+    var ex = examples[idx];
+
+    // 卡片选中高亮
+    ['card0','card1','card2'].forEach(function(id, i) {
+      document.getElementById(id).classList.toggle('active', i === idx);
+    });
+
+    // 隐藏初始提示，显示结果面板
+    document.getElementById('demoTip').style.display = 'none';
+    document.getElementById('results').classList.add('show');
+
+    // ---- Step 1 数据填充 ----
+    var cat = categoryMap[ex.category];
+    var tagEl = document.getElementById('tagCategory');
+    tagEl.textContent = cat.label;
+    tagEl.className = 'tag ' + cat.cls;
+
+    document.getElementById('keyIssue').textContent = ex.key_issue;
+
+    document.getElementById('rawJson').textContent = JSON.stringify({
+      category: ex.category,
+      key_issue: ex.key_issue
+    }, null, 2);
+
+    // ---- Step 2 数据填充 ----
+    var prompts = {
+      complaint:  '商家收到投诉：' + ex.key_issue + '，给出3条具体改进建议',
+      praise:     '商家收到好评：' + ex.key_issue + '，给出1条如何保持并放大优势的建议',
+      suggestion: '用户提出建议：' + ex.key_issue + '，评估可行性并给出回应方向'
+    };
+    document.getElementById('promptSent').textContent = prompts[ex.category];
+    document.getElementById('adviceText').textContent = ex.advice;
+
+    // ---- 最终 JSON ----
+    document.getElementById('finalJson').textContent = JSON.stringify({
+      category: ex.category,
+      key_issue: ex.key_issue,
+      advice: ex.advice.substring(0, 200) + '...'
+    }, null, 2);
+
+    // 滚动到结果区
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+})();
+</script>
+</body>
+</html>
