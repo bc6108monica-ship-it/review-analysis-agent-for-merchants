@@ -179,7 +179,7 @@ tools = [
 def analyze_review(review_text):
     """
     输入：一条字符串形式的用户评论
-    输出：{"category": 分类, "key_issue": 核心问题, "advice": 建议}
+    输出：{"category": 分类, "key_issue": 核心问题, "is_sarcastic": 是否反话, "advice": 建议, "need_review": 是否需人工复核, "review_note": 复核原因}
     """
 
     # ============================================================
@@ -269,6 +269,12 @@ def analyze_review(review_text):
     is_sarcastic = args.get("is_sarcastic", False)  # 是否反话/讽刺
 
     # ============================================================
+    # 情感极性校验：检查分类与情感是否一致
+    # ============================================================
+    need_review, review_reason = verify_sentiment(review_text, category, key_issue)
+    review_note = f"建议人工复核：{review_reason}" if need_review else ""
+
+    # ============================================================
     # 你的业务逻辑：根据分类拼不同的 Prompt
     # ============================================================
     # 这就是"编排"——人的智慧在这里，不是大模型的智慧。
@@ -307,8 +313,48 @@ def analyze_review(review_text):
         "category":     category,      # 投诉/好评/建议
         "key_issue":    key_issue,     # 一句话提炼
         "is_sarcastic": is_sarcastic,  # 是否反话
-        "advice":       advice         # 优化建议
+        "advice":       advice,        # 优化建议
+        "need_review":  need_review,   # 是否需要人工复核
+        "review_note":  review_note    # 复核原因
     }
+
+
+# ====================================================================
+# 第三步附：情感极性校验函数
+# ====================================================================
+
+def verify_sentiment(review_text, category, key_issue):
+    """
+    校验情感极性与分类结果是否一致。
+    不一致时（如 praise 但情感负面）标记 need_review=True，可能为反话。
+    返回：(need_review: bool, reason: str)
+    """
+    verify_response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": (
+                "你是情感极性校验助手。任务：判断评论实际情感与分类结果是否一致。\n\n"
+                "不一致的情况举例：\n"
+                "- 分类为 praise，但实际情感是负面的（表面夸，实际骂）→ 可能反话\n"
+                "- 分类为 complaint，但实际情感是正面的（表面抱怨，实际炫耀）→ 可能反话\n\n"
+                "请只返回 JSON，不要其他文字：\n"
+                '{"need_review": true/false, "reason": "一句话理由"}'
+            )},
+            {"role": "user", "content": (
+                f"原始评论：{review_text}\n"
+                f"分类结果：{category}\n"
+                f"核心问题：{key_issue}\n\n"
+                "请判断情感极性与分类是否一致。"
+            )}
+        ],
+        temperature=0.1
+    )
+    content = verify_response.choices[0].message.content
+    try:
+        result = json.loads(content)
+        return result.get("need_review", False), result.get("reason", "")
+    except (json.JSONDecodeError, KeyError):
+        return False, ""
 
 
 # ====================================================================
@@ -444,6 +490,8 @@ if __name__ == "__main__":
     print(f"  评论类型：{result['category']}")
     print(f"  核心问题：{result['key_issue']}")
     print(f"  是否反话：{result['is_sarcastic']}")
+    if result.get("need_review"):
+        print(f"  [需人工复核] {result['review_note']}")
     print(f"  优化建议：\n{result['advice']}")
 
     # ---- 批量测试 ----
@@ -457,6 +505,8 @@ if __name__ == "__main__":
         "建议你们加一个深色模式，晚上刷商品太刺眼了",
         "买了两件衣服，一件颜色跟图片差太多退货了，另一件还行",
         "快递包装很好，还送了小礼品，客服态度也特别好",
+        "哇发货真的快呢，等了三周才到",                        # 反话测试
+        "客服超级耐心，问了五次都没人回",                      # 反话测试
     ]
 
     report = batch_analyze(test_reviews)
@@ -475,4 +525,20 @@ if __name__ == "__main__":
 
     print(f"\n  优先处理：{report['priority']}")
     print(f"  原因：{report['priority_reason']}")
+
+    # ---- 反话 & 需复核条目 ----
+    sarcastic_items = [d for d in report["details"] if d.get("is_sarcastic")]
+    review_items = [d for d in report["details"] if d.get("need_review")]
+
+    if sarcastic_items:
+        print(f"\n  检测到反话（{len(sarcastic_items)}条）：")
+        for item in sarcastic_items:
+            print(f"    [{item['category']}] {item['key_issue']}")
+
+    if review_items:
+        print(f"\n  需人工复核（{len(review_items)}条）：")
+        for item in review_items:
+            print(f"    [{item['category']}] {item['review_note']}")
+
     print("=" * 60)
+    

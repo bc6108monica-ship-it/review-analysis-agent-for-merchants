@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Agent - 用户评论分析演示</title>
+<title>AI Agent - 用户评论分析演示(反话检测增强版)</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;background:#0f172a;color:#e2e8f0;line-height:1.6;min-height:100vh}
@@ -12,31 +12,35 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 .subtitle{color:#94a3b8;font-size:14px;margin-bottom:32px}
 .arch-diagram{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:28px;margin-bottom:36px}
 .arch-diagram h2{font-size:16px;color:#94a3b8;margin-bottom:20px}
-.flow-row{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
-.flow-box{background:#0f172a;border:2px solid #334155;border-radius:10px;padding:14px 18px;text-align:center;min-width:100px}
+.flow-row{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.flow-box{background:#0f172a;border:2px solid #334155;border-radius:10px;padding:12px 16px;text-align:center;min-width:90px}
 .flow-box.llm{border-color:#a78bfa;background:#1e1b4b}
 .flow-box.code{border-color:#34d399;background:#022c22}
-.flow-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
-.flow-title{font-size:15px;font-weight:700;margin-top:4px}
-.flow-desc{font-size:11px;color:#94a3b8;margin-top:2px}
-.arrow{color:#475569;font-size:20px;font-weight:700}
+.flow-box.warn{border-color:#f59e0b;background:#1e1800}
+.flow-label{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
+.flow-title{font-size:14px;font-weight:700;margin-top:3px}
+.flow-desc{font-size:10px;color:#94a3b8;margin-top:2px}
+.arrow{color:#475569;font-size:18px;font-weight:700}
 .examples-section{margin-bottom:24px}
 .examples-section h2{font-size:16px;color:#94a3b8;margin-bottom:12px}
 .example-cards{display:flex;gap:10px;flex-wrap:wrap}
-.example-card{flex:1;min-width:200px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:14px;cursor:pointer;transition:all .2s}
+.example-card{flex:1;min-width:180px;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:12px;cursor:pointer;transition:all .2s}
 .example-card:hover{border-color:#38bdf8;background:#0c2d48}
 .example-card.active{border-color:#38bdf8;background:#0c2d48;box-shadow:0 0 12px rgba(56,189,248,.15)}
-.example-card .icon{font-size:20px}
-.example-card .label{font-size:12px;color:#64748b;margin-top:4px}
-.example-card .text{font-size:13px;color:#cbd5e1;margin-top:6px}
+.example-card .icon{font-size:18px}
+.example-card .label{font-size:11px;color:#64748b;margin-top:3px}
+.example-card .text{font-size:12px;color:#cbd5e1;margin-top:4px}
+.example-card .badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:8px;margin-top:3px}
+.badge-sarcastic{background:#b45309;color:#fcd34d}
 .results{display:none}
 .results.show{display:block}
 .step-block{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:16px}
 .step-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .step-num{background:#38bdf8;color:#0f172a;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
+.step-num.warn{background:#f59e0b}
 .step-title{font-size:16px;font-weight:700}
 .info-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
-.info-item{flex:1;min-width:180px}
+.info-item{flex:1;min-width:160px}
 .info-item .key{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
 .info-item .val{font-size:14px;font-weight:600;margin-top:2px;padding:8px 12px;background:#0f172a;border-radius:6px;border:1px solid #1e293b}
 .raw-json summary{font-size:12px;color:#64748b;cursor:pointer;user-select:none;margin-bottom:8px}
@@ -46,6 +50,7 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 .tag-complaint{background:#7f1d1d;color:#fca5a5}
 .tag-praise{background:#14532d;color:#86efac}
 .tag-suggestion{background:#1e3a5f;color:#93c5fd}
+.alert-box{background:#451a03;border:1px solid #b45309;border-radius:8px;padding:14px;margin-top:10px;color:#fcd34d;font-size:13px}
 .bar-wrap{background:#0f172a;border-radius:4px;height:20px;overflow:hidden;margin-top:4px}
 .bar-fill{height:100%;border-radius:4px;min-width:2px;transition:width .5s}
 .demo-tip{background:#1e293b;border:1px dashed #475569;border-radius:10px;padding:28px;text-align:center;color:#94a3b8}
@@ -55,67 +60,88 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 </head>
 <body>
 <div class="container">
-<h1>AI Agent：用户评论分析 + 优化建议生成</h1>
-<p class="subtitle">技术栈：DeepSeek API / Function Calling / Python 编排 / 两阶段 Pipeline</p>
+<h1>AI Agent：用户评论分析 + 反话检测</h1>
+<p class="subtitle">技术栈：DeepSeek API / Function Calling / 情感极性校验 / Python 编排 / 三步 Pipeline</p>
 
 <div class="arch-diagram">
-<h2>Agent 执行架构</h2>
+<h2>Agent 执行架构(3次API调用 + 2层防护)</h2>
 <div class="flow-row">
-<div class="flow-box"><div class="flow-label">输入</div><div class="flow-title">用户评论</div><div class="flow-desc">原始文本</div></div>
+<div class="flow-box"><div class="flow-label">输入</div><div class="flow-title">用户评论</div></div>
 <div class="arrow">→</div>
-<div class="flow-box llm"><div class="flow-label">第1次API调用</div><div class="flow-title">Function Calling</div><div class="flow-desc">结构化分类JSON</div></div>
+<div class="flow-box llm"><div class="flow-label">API 1</div><div class="flow-title">Function Calling</div><div class="flow-desc">分类+反话识别</div></div>
 <div class="arrow">→</div>
-<div class="flow-box code"><div class="flow-label">编排逻辑(自己写)</div><div class="flow-title">Prompt拼装</div><div class="flow-desc">根据分类选模板</div></div>
+<div class="flow-box warn"><div class="flow-label">API 2</div><div class="flow-title">情感校验</div><div class="flow-desc">分类vs情感一致性</div></div>
 <div class="arrow">→</div>
-<div class="flow-box llm"><div class="flow-label">第2次API调用</div><div class="flow-title">自然语言生成</div><div class="flow-desc">优化建议文本</div></div>
+<div class="flow-box code"><div class="flow-label">编排</div><div class="flow-title">Prompt拼装</div></div>
 <div class="arrow">→</div>
-<div class="flow-box code"><div class="flow-label">输出</div><div class="flow-title">打包返回</div><div class="flow-desc">{分类+问题+建议}</div></div>
+<div class="flow-box llm"><div class="flow-label">API 3</div><div class="flow-title">建议生成</div><div class="flow-desc">优化建议</div></div>
+<div class="arrow">→</div>
+<div class="flow-box code"><div class="flow-label">输出</div><div class="flow-title">打包返回</div><div class="flow-desc">含复核标记</div></div>
+</div>
+<p style="font-size:11px;color:#64748b;margin-top:14px;text-align:center">方案1: System Prompt注入反话示例(API 1内置) &nbsp;|&nbsp; 方案2: 独立情感极性校验(API 2) — 不一致则标记人工复核</p>
+</div>
+
+<div class="examples-section">
+<h2>单条分析 — 含反话检测示例(带[反话]标记的为讽刺评论)</h2>
+<div class="example-cards">
+<div class="example-card" id="card0"><div class="icon">[反话]</div><div class="label">反话: 讽刺发货慢</div><div class="text">"哇发货真的快呢，等了三周才到"</div><div class="badge badge-sarcastic">反话检测</div></div>
+<div class="example-card" id="card1"><div class="icon">[反话]</div><div class="label">反话: 讽刺客服</div><div class="text">"客服超级耐心，问了五次都没人回"</div><div class="badge badge-sarcastic">反话检测</div></div>
+<div class="example-card" id="card2"><div class="icon">[投诉]</div><div class="label">普通投诉</div><div class="text">"发货太慢了，客服也不回消息"</div></div>
+<div class="example-card" id="card3"><div class="icon">[好评]</div><div class="label">真实好评</div><div class="text">"降噪效果绝了，推荐！"</div></div>
+<div class="example-card" id="card4"><div class="icon">[建议]</div><div class="label">功能建议</div><div class="text">"加个深色模式吧"</div></div>
 </div>
 </div>
 
 <div class="examples-section">
-<h2>单条分析 — 点击卡片查看执行过程</h2>
+<h2>批量分析 — 含反话评论的汇总报表</h2>
 <div class="example-cards">
-<div class="example-card" id="card0"><div class="icon">[投诉]</div><div class="label">投诉示例</div><div class="text">快递太慢了，客服也不回消息</div></div>
-<div class="example-card" id="card1"><div class="icon">[好评]</div><div class="label">好评示例</div><div class="text">降噪效果绝了，推荐！</div></div>
-<div class="example-card" id="card2"><div class="icon">[建议]</div><div class="label">建议示例</div><div class="text">加个深色模式吧，太刺眼了</div></div>
-</div>
-</div>
-
-<div class="examples-section">
-<h2>批量分析 — 点击查看汇总报表</h2>
-<div class="example-cards">
-<div class="example-card" id="cardBatch"><div class="icon">[报表]</div><div class="label">批量分析报表</div><div class="text">5条评论 → 占比统计 + 投诉清单 + 优先级</div></div>
+<div class="example-card" id="cardBatch"><div class="icon">[报表]</div><div class="label">批量分析报表(7条)</div><div class="text">含2条反话 → 占比统计 + 投诉清单 + 反话标记 + 人工复核清单 + 优先级</div></div>
 </div>
 </div>
 
 <div class="results" id="results">
 <div class="step-block">
-<div class="step-header"><div class="step-num">1</div><div class="step-title">意图识别 — Function Calling(第1次API调用)</div></div>
+<div class="step-header"><div class="step-num">1</div><div class="step-title">API 1: 意图识别 + 反话检测 — Function Calling</div></div>
 <div class="info-row">
 <div class="info-item"><div class="key">评论类型</div><div class="val"><span class="tag" id="tagCategory"></span></div></div>
-<div class="info-item"><div class="key">核心问题提炼</div><div class="val" id="keyIssue"></div></div>
+<div class="info-item"><div class="key">核心问题</div><div class="val" id="keyIssue"></div></div>
 </div>
-<details class="raw-json"><summary>查看大模型返回的原始Function Calling JSON</summary><pre id="rawJson"></pre></details>
-<p style="font-size:12px;color:#64748b;margin-top:10px">大模型返回结构化tool_call参数，由Python的json.loads(tool_call.function.arguments)解析。</p>
+<div class="info-row">
+<div class="info-item"><div class="key">反话检测</div><div class="val" id="sarcasticFlag"></div></div>
 </div>
+<details class="raw-json"><summary>查看 Function Calling 返回的原始 JSON</summary><pre id="rawJson"></pre></details>
+<p style="font-size:12px;color:#64748b;margin-top:10px">System Prompt 含3条反话示例，并新增 is_sarcastic 字段用于标记讽刺/反语表达。</p>
+</div>
+
 <div class="step-block">
-<div class="step-header"><div class="step-num">2</div><div class="step-title">优化建议生成 — Prompt Engineering(第2次API调用)</div></div>
-<details class="raw-json"><summary>查看发给大模型的Prompt</summary><pre id="promptSent" style="color:#a78bfa"></pre></details>
-<div class="advice-box" id="adviceText"></div>
-<p style="font-size:12px;color:#64748b;margin-top:10px">这一次是普通聊天(没传tools)，根据第1步分类结果动态选择Prompt模板。</p>
+<div class="step-header"><div class="step-num warn">2</div><div class="step-title">API 2: 情感极性校验 — 独立验证分类与情感是否一致</div></div>
+<div class="info-row">
+<div class="info-item"><div class="key">需人工复核</div><div class="val" id="reviewFlag"></div></div>
+<div class="info-item"><div class="key">复核原因</div><div class="val" id="reviewNote" style="font-size:13px"></div></div>
 </div>
+<details class="raw-json"><summary>查看 sentiment verify 请求/响应</summary><pre id="verifyDetail" style="color:#f59e0b"></pre></details>
+<p style="font-size:12px;color:#64748b;margin-top:10px">独立的 verify_sentiment 函数检测评论实际情感与分类结果是否一致，不一致则标记 need_review=True。</p>
+</div>
+
+<div class="step-block">
+<div class="step-header"><div class="step-num">3</div><div class="step-title">API 3: 优化建议生成 — Prompt Engineering</div></div>
+<details class="raw-json"><summary>查看发给大模型的 Prompt</summary><pre id="promptSent" style="color:#a78bfa"></pre></details>
+<div class="advice-box" id="adviceText"></div>
+</div>
+
 <div class="step-block" style="border-color:#38bdf8">
-<div class="step-header"><div class="step-num" style="background:#34d399">OK</div><div class="step-title">Agent执行完成，返回给调用方</div></div>
+<div class="step-header"><div class="step-num" style="background:#34d399">OK</div><div class="step-title">Agent 执行完成，返回完整 JSON</div></div>
 <div class="advice-box" id="finalJson" style="font-family:monospace;font-size:13px"></div>
 </div>
 </div>
 
 <div class="results" id="batchResults">
 <div class="step-block">
-<div class="step-header"><div class="step-num">总</div><div class="step-title">批量分析 — 输入5条评论，逐条调用analyze_review后汇总</div></div>
+<div class="step-header"><div class="step-num">M</div><div class="step-title">批量分析 — 7条评论(含2条反话)</div></div>
 <div class="info-row">
 <div class="info-item"><div class="key">评论总数</div><div class="val" id="batchTotal"></div></div>
+<div class="info-item"><div class="key">反话评论</div><div class="val" id="batchSarcastic" style="color:#fcd34d"></div></div>
+<div class="info-item"><div class="key">需人工复核</div><div class="val" id="batchReview" style="color:#f59e0b"></div></div>
 <div class="info-item"><div class="key">优先处理</div><div class="val"><span class="tag" id="batchPriorityTag"></span></div></div>
 </div>
 </div>
@@ -124,8 +150,12 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 <div id="batchSummary"></div>
 </div>
 <div class="step-block">
-<div class="step-header"><div class="step-num">2</div><div class="step-title">投诉问题清单(所有complaint的key_issue)</div></div>
+<div class="step-header"><div class="step-num">2</div><div class="step-title">投诉问题清单(所有 complaint 的 key_issue)</div></div>
 <div class="advice-box" id="batchComplaints"></div>
+</div>
+<div class="step-block" style="border-color:#b45309">
+<div class="step-header"><div class="step-num warn">!</div><div class="step-title">反话/讽刺评论 & 需人工复核条目</div></div>
+<div class="advice-box" id="batchAlerts" style="color:#fcd34d"></div>
 </div>
 <div class="step-block" style="border-color:#38bdf8">
 <div class="step-header"><div class="step-num" style="background:#34d399">3</div><div class="step-title">优先级建议</div></div>
@@ -133,11 +163,11 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 </div>
 </div>
 
-<div class="demo-tip" id="demoTip"><div class="big">?</div><p>点击上方任意一个示例卡片</p><p>查看Agent从输入到输出的完整执行链路</p></div>
+<div class="demo-tip" id="demoTip"><div class="big">?</div><p>点击上方任意一个示例卡片</p><p>含2条反话评论 — 展示三阶段 Agent 的防反话机制</p></div>
 </div>
 
 <script>
-var EXAMPLES = [{"review": "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息", "category": "complaint", "key_issue": "发货速度极慢，等待一周未到货，且客服不回复消息", "advice": "1. 建立承诺时效+实时预警机制：在商品详情页明确标注最晚发货时间(48小时内)，接入ERP设置超时预警并自动触发补偿\n\n2. 设置客服响应SLA：所有消息10秒内机器人自动回复，人工首次响应不超过30分钟，离线时段自动转工单\n\n3. 实施物流透明化+主动安抚策略：自动推送物流节点，超72小时自动道歉+补偿，设置催单绿色通道\n\n总结：承诺清晰、响应及时、主动安抚，才能将投诉转化为信任。"}, {"review": "这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！", "category": "praise", "key_issue": "耳机降噪效果出色，地铁噪音完全隔绝，用户强烈推荐", "advice": "1. 将地铁噪音痛点升级为全场景降噪体验：制作通勤/办公室/居家场景对比视频，展示佩戴前后差异\n\n2. 用户证言收集：在详情页展示不同场景真实反馈\n\n3. 技术科普建立壁垒：介绍前馈+后馈双麦克风混合降噪技术，说明如何精准捕捉并抵消低频噪音\n\n总结：引导用户从地铁降噪好联想到全场景都能搞定。"}, {"review": "建议你们加一个深色模式，晚上刷商品太刺眼了", "category": "suggestion", "key_issue": "建议增加深色模式，解决夜间浏览商品时屏幕刺眼的问题", "advice": "一、技术可行性：前端通过CSS变量/主题切换库可实现，开发成本低，预估设计1-2周+开发3-5天\n\n二、回应方向：1.感谢认可 2.说明进展(预计下版本上线) 3.临时替代方案(开启系统深色模式/护眼模式) 4.邀请内测\n\n三、附加：分阶段上线(先基础版再迭代)、支持跟随系统主题自动切换"}];
+var EXAMPLES = [{"review": "哇发货真的快呢，等了三周才到", "category": "complaint", "key_issue": "讽刺发货慢，实际等了三个星期才到货", "is_sarcastic": true, "advice": "1. 优化库存与物流预警，设置超时自动补偿：后台为每件商品设置库存深度预警线，接入物流实时数据，超时自动发补偿券\n\n2. 重构发货节点通知，变被动等待为主动透明：拆解为已接单→备货中→已出库→运输中→派送中五个节点，延迟订单在第7天主动发送解释+补偿\n\n3. 建立超时订单专项客服通道：超7天订单自动标记高危，专属客服第10天主动致电，提供等赔/退款二选一方案", "need_review": true, "review_note": "评论表面说发货快，实际讽刺发货慢，情感为负面但分类为complaint一致，需确认"}, {"review": "客服超级耐心，问了五次都没人回", "category": "complaint", "key_issue": "讽刺客服不回复，问了五次都没人回应", "is_sarcastic": true, "advice": "1. 建立超时未响应自动预警+强制升级：客服系统设首次响应倒计时60秒，超时自动高亮警告并抄送组长，超2分钟自动强制转接\n\n2. 实施客户等待安抚自动化：超30秒自动发安抚消息，超1分钟发可爱表情包缓解焦虑，重复提问自动置顶+强提醒\n\n3. 制定重复提问专项SOP+事后复盘：第3次提问立即暂停其他工作做明确回复，每天导出投诉对话复盘，高频问题制作快捷模板", "need_review": true, "review_note": "评论实际是讽刺客服不回复，情感为负面，需确认未误判为正面"}, {"review": "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息", "category": "complaint", "key_issue": "发货太慢等了一周未到，且客服不回复消息", "is_sarcastic": false, "advice": "1. 建立超时预警+主动赔付：后台设48/72小时发货承诺，超时自动短信道歉+补偿优惠券，预售商品醒目红字标注发货时间\n\n2. 实施客服响应SOP+兜底机制：智能机器人自动回复识别关键词，强制5分钟内回复未读消息，超30分钟离线自动转接备用客服\n\n3. 优化物流信息透明化：发货后立即推送物流单号+预计送达时间，超24小时无更新自动安抚，准备标准客服话术模板", "need_review": false, "review_note": ""}, {"review": "这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！", "category": "praise", "key_issue": "降噪效果出色，地铁噪音完全听不见", "is_sarcastic": false, "advice": "1. 制作地铁噪音消除挑战系列短视频：拍摄真实通勤对比视频，展示佩戴前后的分贝值变化，强调连地铁高频噪音都能过滤\n\n2. 建立通勤降噪用户社群/话题标签：在详情页附体验官邀请卡，鼓励用户分享通勤场景使用效果，定期评选硬核通勤场景送配件\n\n3. 升级产品细节回应好评隐含需求：针对完全听不见的体验，可推出地铁/飞行模式固件升级，强化抗风噪和耳压平衡", "need_review": false, "review_note": ""}, {"review": "建议你们加一个深色模式，晚上刷商品太刺眼了", "category": "suggestion", "key_issue": "建议增加深色模式，解决夜间浏览刺眼问题", "is_sarcastic": false, "advice": "技术可行性：高，CSS变量/主题切换库成熟，通过prefers-color-scheme可跟随系统设置。预估设计1-2周+开发3-5天\n\n回应方向：1.感谢认可 2.说明已列入下一迭代计划 3.临时替代方案(开启系统深色模式/护眼模式) 4.邀请参加内测\n\n附加建议：分阶段上线(先基础版再迭代细节)，支持跟随系统自动切换", "need_review": false, "review_note": ""}];
 
 var catMap = {
   complaint:  { label: "投诉", cls: "tag-complaint" },
@@ -147,9 +177,10 @@ var catMap = {
 
 function showExample(idx) {
   var ex = EXAMPLES[idx];
-  document.getElementById("card0").classList.toggle("active", idx===0);
-  document.getElementById("card1").classList.toggle("active", idx===1);
-  document.getElementById("card2").classList.toggle("active", idx===2);
+  // 高亮卡片
+  for (var i = 0; i < 5; i++) {
+    document.getElementById("card" + i).classList.toggle("active", i === idx);
+  }
   document.getElementById("cardBatch").classList.remove("active");
   document.getElementById("demoTip").style.display = "none";
   document.getElementById("batchResults").classList.remove("show");
@@ -161,34 +192,78 @@ function showExample(idx) {
   t.className = "tag " + cat.cls;
   document.getElementById("keyIssue").textContent = ex.key_issue;
 
-  document.getElementById("rawJson").textContent = JSON.stringify({category:ex.category, key_issue:ex.key_issue}, null, 2);
+  // 反话标记
+  var sf = document.getElementById("sarcasticFlag");
+  if (ex.is_sarcastic) {
+    sf.innerHTML = '<span style="color:#fcd34d;font-weight:700">是</span> — 检测到反话/讽刺表达';
+  } else {
+    sf.innerHTML = '<span style="color:#86efac">否</span>';
+  }
 
+  // Function Calling 原始 JSON
+  document.getElementById("rawJson").textContent = JSON.stringify({
+    category: ex.category,
+    key_issue: ex.key_issue,
+    is_sarcastic: ex.is_sarcastic
+  }, null, 2);
+
+  // Step 2: 情感校验
+  var rf = document.getElementById("reviewFlag");
+  var rn = document.getElementById("reviewNote");
+  if (ex.need_review) {
+    rf.innerHTML = '<span style="color:#fcd34d;font-weight:700">是</span><span style="color:#f59e0b"> — 分类与情感不一致</span>';
+    rn.textContent = ex.review_note;
+  } else {
+    rf.innerHTML = '<span style="color:#86efac">否</span> — 分类与情感一致，无需人工干涉';
+    rn.textContent = "分类与情感极性一致，自动通过";
+  }
+
+  // 校验详情
+  document.getElementById("verifyDetail").textContent = JSON.stringify({
+    verify_function: "verify_sentiment(review_text, category, key_issue)",
+    result: { need_review: ex.need_review, reason: ex.review_note || "一致" }
+  }, null, 2);
+
+  // Step 3: Prompt
   var prompts = {};
   prompts.complaint = "商家收到投诉：" + ex.key_issue + "，给出3条具体改进建议";
   prompts.praise = "商家收到好评：" + ex.key_issue + "，给出1条如何保持并放大优势的建议";
   prompts.suggestion = "用户提出建议：" + ex.key_issue + "，评估可行性并给出回应方向";
   document.getElementById("promptSent").textContent = prompts[ex.category];
   document.getElementById("adviceText").textContent = ex.advice;
-  document.getElementById("finalJson").textContent = JSON.stringify({category:ex.category, key_issue:ex.key_issue, advice:ex.advice.substring(0,200)+"..."}, null, 2);
+
+  // 最终 JSON
+  document.getElementById("finalJson").textContent = JSON.stringify({
+    category: ex.category,
+    key_issue: ex.key_issue,
+    is_sarcastic: ex.is_sarcastic,
+    advice: ex.advice.substring(0, 200) + "...",
+    need_review: ex.need_review,
+    review_note: ex.review_note || ""
+  }, null, 2);
+
   document.getElementById("results").scrollIntoView({behavior:"smooth", block:"start"});
 }
 
 function showBatch() {
-  document.getElementById("card0").classList.remove("active");
-  document.getElementById("card1").classList.remove("active");
-  document.getElementById("card2").classList.remove("active");
+  for (var i = 0; i < 5; i++) {
+    document.getElementById("card" + i).classList.remove("active");
+  }
   document.getElementById("cardBatch").classList.add("active");
   document.getElementById("demoTip").style.display = "none";
   document.getElementById("results").classList.remove("show");
   document.getElementById("batchResults").classList.add("show");
 
-  document.getElementById("batchTotal").textContent = "5 条";
+  document.getElementById("batchTotal").textContent = "7 条";
+  document.getElementById("batchSarcastic").textContent = "2 条(反话/讽刺)";
+  document.getElementById("batchReview").textContent = "2 条";
 
   var pt = document.getElementById("batchPriorityTag");
   pt.textContent = "投诉";
   pt.className = "tag tag-complaint";
 
-  var summary = {complaint:{count:2,pct:40}, praise:{count:2,pct:40}, suggestion:{count:1,pct:20}};
+  // 占比(7条: 4 complaint + 2 praise + 1 suggestion)
+  var summary = {complaint:{count:4,pct:57.1}, praise:{count:2,pct:28.6}, suggestion:{count:1,pct:14.3}};
   var labels = {complaint:"投诉", praise:"好评", suggestion:"建议"};
   var colors = {complaint:"#fca5a5", praise:"#86efac", suggestion:"#93c5fd"};
   var h = "";
@@ -199,24 +274,42 @@ function showBatch() {
   }
   document.getElementById("batchSummary").innerHTML = h;
 
+  // 投诉清单
   var issues = [
-    "发货速度极慢，等待一周未到货，且客服不回复消息",
+    "讽刺发货慢，实际等了三个星期才到货[反话]",
+    "讽刺客服不回复，问了五次都没人回应[反话]",
+    "发货太慢等了一周未到，且客服不回复消息",
     "衣服颜色与图片相差太多，导致退货"
   ];
   var ci = "";
-  for (var i=0; i<issues.length; i++) {
+  for (var i = 0; i < issues.length; i++) {
     ci += "<div style=\"padding:6px 0;border-bottom:1px solid #1e293b\">" + (i+1) + ". " + issues[i] + "</div>";
   }
   document.getElementById("batchComplaints").innerHTML = ci;
 
-  document.getElementById("batchPriorityInfo").innerHTML = "<b>优先处理：投诉类</b><br><br>投诉类占比最高(40.0%)，与好评并列但投诉影响更大，需优先处理。<br><br>建议：先将投诉类问题按key_issue归类，找出共性(如物流、客服)，由运营团队逐项制定改进方案并设定 SLA。";
+  // 反话 & 复核标记
+  var alertHtml = "<b>反话/讽刺评论(2条):</b><br><br>";
+  alertHtml += "1. 「哇发货真的快呢，等了三周才到」→ 分类:complaint, is_sarcastic=true<br>";
+  alertHtml += "&nbsp;&nbsp;&nbsp;复核原因: 表面夸发货快，实际讽刺发货慢<br><br>";
+  alertHtml += "2. 「客服超级耐心，问了五次都没人回」→ 分类:complaint, is_sarcastic=true<br>";
+  alertHtml += "&nbsp;&nbsp;&nbsp;复核原因: 表面夸客服耐心，实际讽刺没人回复<br><br>";
+  alertHtml += "<b>方案对比:</b><br>";
+  alertHtml += "方案1: System Prompt中注入3个反话示例 → 大模型在分类时同步输出is_sarcastic字段<br>";
+  alertHtml += "方案2: 独立verify_sentiment函数(第3次API调用) → 检测情感与分类不一致则标记need_review<br>";
+  alertHtml += "两层防护: 即使方案1漏了，方案2也能补上。两者同时触发 → 人工复核。";
+  document.getElementById("batchAlerts").innerHTML = alertHtml;
+
+  document.getElementById("batchPriorityInfo").innerHTML = "<b>优先处理：投诉类(57.1%)</b><br><br>投诉类占比超半数，其中2条为反话/讽刺表达。建议:<br><br>1. 反话评论虽然表面上难检测，但实际指向真实问题(物流慢、客服不回复)<br>2. 优先解决发货时效和客服响应两个高频投诉点<br>3. 反话标记+人工复核标记可帮助运营团队快速定位「真问题」vs「情绪宣泄」";
+
   document.getElementById("batchResults").scrollIntoView({behavior:"smooth", block:"start"});
 }
 
-// 绑定事件
+// 绑定
 document.getElementById("card0").onclick = function(){ showExample(0); };
 document.getElementById("card1").onclick = function(){ showExample(1); };
 document.getElementById("card2").onclick = function(){ showExample(2); };
+document.getElementById("card3").onclick = function(){ showExample(3); };
+document.getElementById("card4").onclick = function(){ showExample(4); };
 document.getElementById("cardBatch").onclick = showBatch;
 </script>
 </body>
