@@ -56,6 +56,29 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 .demo-tip{background:#1e293b;border:1px dashed #475569;border-radius:10px;padding:28px;text-align:center;color:#94a3b8}
 .demo-tip .big{font-size:48px;margin-bottom:8px}
 .demo-tip p{margin-top:6px}
+
+.innovation-section{margin-bottom:36px}
+.innovation-section h2{font-size:16px;color:#94a3b8;margin-bottom:6px}
+.innovation-section .section-note{font-size:12px;color:#64748b;margin-bottom:20px}
+.innovation-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:640px){.innovation-grid{grid-template-columns:1fr}}
+.innovation-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:24px;position:relative;overflow:hidden;transition:border-color .3s}
+.innovation-card:hover{border-color:#2dd4bf}
+.innovation-card::before{content:"";position:absolute;top:0;left:0;right:0;height:3px}
+.innovation-card.card-trend::before{background:linear-gradient(90deg,#2dd4bf,#0ea5e9)}
+.innovation-card.card-profile::before{background:linear-gradient(90deg,#a78bfa,#f472b6)}
+.innovation-card .card-icon{font-size:28px;margin-bottom:12px}
+.innovation-card .card-title{font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:4px}
+.innovation-card .card-subtitle{font-size:12px;color:#64748b;margin-bottom:16px}
+.innovation-card .card-body{font-size:13px;color:#94a3b8;line-height:1.8}
+.innovation-card .card-body .highlight{color:#2dd4bf;font-weight:600}
+.innovation-card .card-body .vs{color:#475569;margin:0 4px}
+.innovation-card .card-footer{font-size:11px;color:#64748b;margin-top:16px;padding-top:14px;border-top:1px solid #1e293b}
+.innovation-card .tag-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.innovation-card .tech-tag{font-size:10px;padding:3px 10px;border-radius:10px;background:#0f172a;color:#94a3b8;border:1px solid #1e293b}
+.innovation-divider{display:flex;align-items:center;gap:12px;margin:36px 0 24px}
+.innovation-divider::before,.innovation-divider::after{content:"";flex:1;height:1px;background:#1e293b}
+.innovation-divider span{font-size:11px;color:#475569;letter-spacing:2px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -160,6 +183,55 @@ h1{font-size:28px;color:#38bdf8;margin-bottom:6px}
 <div class="step-block" style="border-color:#38bdf8">
 <div class="step-header"><div class="step-num" style="background:#34d399">3</div><div class="step-title">优先级建议</div></div>
 <div class="advice-box" id="batchPriorityInfo"></div>
+</div>
+</div>
+
+
+<div class="innovation-section">
+<div class="innovation-divider"><span>创新点与改进方向</span></div>
+<p class="section-note">以下为模型未来的演进方向，当前阶段仅提出思路，待数据集到位后实现。</p>
+<div class="innovation-grid">
+
+<div class="innovation-card card-trend">
+<div class="card-icon">1</div>
+<div class="card-title">趋势分析 — 时间维度的评论洞察</div>
+<div class="card-subtitle">Temporal Review Intelligence</div>
+<div class="card-body">
+单条评论分析是<span class="highlight">静态快照</span>，加入<span class="highlight">时间维度</span>后就能看到趋势变化。
+<br><br>
+对于同一个商家，对比<span class="highlight">上周</span><span class="vs">vs</span><span class="highlight">这周</span>的投诉焦点：
+<br><br>
+&nbsp;&nbsp;上周 Top 投诉：物流慢（12条）→ 本周降至 3 条，说明物流改善了
+<br>&nbsp;&nbsp;本周 Top 投诉：客服不回（15条）→ 上周仅 2 条，说明客服变差了
+<br><br>
+不是看"当前有问题"，而是看<span class="highlight">问题在变好还是变坏</span>。<br>
+这是竞品只做静态分类做不到的。
+</div>
+<div class="card-footer">核心价值：从"发现问题"升级为"追踪问题演变"，辅助运营做动态资源调配。</div>
+<div class="tag-row">
+<span class="tech-tag">时间序列</span><span class="tech-tag">趋势对比</span><span class="tech-tag">竞品差异化</span>
+</div>
+</div>
+
+<div class="innovation-card card-profile">
+<div class="card-icon">2</div>
+<div class="card-title">商家画像 — 问题类型的智能归类</div>
+<div class="card-subtitle">Merchant Problem Profiling</div>
+<div class="card-body">
+批量分析多个商家后，按投诉结构给每个商家生成<span class="highlight">"问题画像"</span>：
+<br><br>
+&nbsp;&nbsp;A 商家 → <span class="highlight">物流差型</span>（投诉中 70% 指向发货慢/丢件/包装破损）
+<br>&nbsp;&nbsp;B 商家 → <span class="highlight">客服差型</span>（投诉中 65% 指向态度差/不回复/推诿）
+<br>&nbsp;&nbsp;C 商家 → <span class="highlight">产品差型</span>（投诉中 60% 指向质量问题/描述不符/假货）
+<br><br>
+不同类型给<span class="highlight">不同的改进路径</span>，而不是所有商家都收到同样的建议模板。
+</div>
+<div class="card-footer">核心价值：从"千人一面"的通用建议升级为"一商一策"的精准改进方案。</div>
+<div class="tag-row">
+<span class="tech-tag">聚类分析</span><span class="tech-tag">商家画像</span><span class="tech-tag">个性化建议</span>
+</div>
+</div>
+
 </div>
 </div>
 

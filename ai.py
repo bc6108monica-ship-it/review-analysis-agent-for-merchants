@@ -1,6 +1,7 @@
 import openai
 import os
 import json
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 
 # ====================================================================
@@ -269,43 +270,33 @@ def analyze_review(review_text):
     is_sarcastic = args.get("is_sarcastic", False)  # 是否反话/讽刺
 
     # ============================================================
-    # 情感极性校验：检查分类与情感是否一致
+    # 第 2 次 API 调用（并行）：情感校验 + 生成建议
+    # 这两个调用互不依赖，同时发出以节省时间
     # ============================================================
-    need_review, review_reason = verify_sentiment(review_text, category, key_issue)
-    review_note = f"建议人工复核：{review_reason}" if need_review else ""
-
-    # ============================================================
-    # 你的业务逻辑：根据分类拼不同的 Prompt
-    # ============================================================
-    # 这就是"编排"——人的智慧在这里，不是大模型的智慧。
-    # 投诉、好评、建议，三种情况要生成的东西完全不同，
-    # 所以我们用三个不同的 prompt 模板。
-
     advice_prompt = {
         "complaint": f"商家收到投诉：{key_issue}，给出3条具体改进建议",
         "praise":    f"商家收到好评：{key_issue}，给出1条如何保持并放大优势的建议",
         "suggestion": f"用户提出建议：{key_issue}，评估可行性并给出回应方向"
     }
 
-    # ============================================================
-    # 第 2 次 API 调用：生成优化建议（普通聊天，不用 Function Calling）
-    # ============================================================
+    def call_verify():
+        return verify_sentiment(review_text, category, key_issue)
 
-    advice_response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[
-            # 根据第1步的分类结果选择对应的 prompt
-            {"role": "user", "content": advice_prompt[category]}
-        ],
-        # ★ 注意：这次没有传 tools！所以就是普通的问答，不会触发 Function Calling
-        temperature=0.5  # 比分类时略高，让建议写得有点"人味"
-    )
+    def call_advice():
+        resp = client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": advice_prompt[category]}],
+            temperature=0.5
+        )
+        return resp.choices[0].message.content
 
-    # 【提取纯文本回复】
-    #   两次调用的区别：
-    #     第1次 → 我们关心 message.tool_calls（结构化的参数）
-    #     第2次 → 我们关心 message.content（大模型的自然语言回复）
-    advice = advice_response.choices[0].message.content
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future_verify = executor.submit(call_verify)
+        future_advice = executor.submit(call_advice)
+        need_review, review_reason = future_verify.result()
+        advice = future_advice.result()
+
+    review_note = f"建议人工复核：{review_reason}" if need_review else ""
 
     # 【打包返回】
     #   把两次调用 + 手工处理的结果汇总成一个 dict，对外就是一个干净的接口

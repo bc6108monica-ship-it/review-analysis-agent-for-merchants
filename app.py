@@ -9,7 +9,7 @@ Agent 可视化演示 —— 面试用
 """
 
 import gradio as gr
-from ai import analyze_review, batch_analyze, client, tools
+from ai import analyze_review, batch_analyze
 import json
 
 # ============================================================
@@ -17,9 +17,10 @@ import json
 # ============================================================
 SINGLE_EXAMPLES = [
     ["东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息"],
+    ["哇发货真的快呢，等了三周才到"],                                  # 反话
+    ["客服超级耐心，问了五次都没人回"],                                # 反话
     ["这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！"],
     ["建议你们加一个深色模式，晚上刷商品太刺眼了"],
-    ["买了两件衣服，一件颜色跟图片差太多退货了，另一件还行"],
     ["快递包装很好，还送了小礼品，客服态度也特别好"],
 ]
 
@@ -36,48 +37,31 @@ BATCH_EXAMPLE = (
 # Tab 1：单条评论分析（原有功能）
 # ============================================================
 def process_single(review_text):
-    """拆解 Agent 两步过程，让面试官看到中间结果"""
+    """调用 ai.py 的 analyze_review，展示完整三步 Pipeline（含反话检测+情感校验）"""
     if not review_text.strip():
-        return "请先输入评论内容", "", "", ""
+        return "请先输入评论内容", "", "", "", "", ""
 
-    # 第 1 步
-    response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[{"role": "user", "content": f"分析这条用户评论：{review_text}"}],
-        tools=tools,
-        tool_choice="auto",
-        temperature=0.2,
-    )
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
-    category = args["category"]
-    key_issue = args["key_issue"]
-    step1_raw = json.dumps(args, ensure_ascii=False, indent=2)
+    result = analyze_review(review_text)
 
     label_map = {"complaint": "投诉", "praise": "好评", "suggestion": "建议"}
+    cat_label = label_map[result["category"]]
+    key_issue = result["key_issue"]
 
-    # 第 2 步
-    advice_prompt = {
-        "complaint":  f"商家收到投诉：{key_issue}，给出3条具体改进建议",
-        "praise":     f"商家收到好评：{key_issue}，给出1条如何保持并放大优势的建议",
-        "suggestion": f"用户提出建议：{key_issue}，评估可行性并给出回应方向",
-    }
-    used_prompt = advice_prompt[category]
+    # 反话检测
+    sarcastic_display = "是 ⚠ 检测到反话/讽刺表达" if result["is_sarcastic"] else "否"
 
-    advice_response = client.chat.completions.create(
-        model="deepseek-chat",
-        messages=[{"role": "user", "content": used_prompt}],
-        temperature=0.5,
-    )
-    advice = advice_response.choices[0].message.content
+    # 情感校验
+    if result["need_review"]:
+        review_display = f"⚠ 需人工复核"
+        review_detail = result["review_note"]
+    else:
+        review_display = "通过"
+        review_detail = "分类与情感极性一致，自动通过"
 
-    return (
-        f"{label_map[category]}",
-        key_issue,
-        step1_raw,
-        f"**发给大模型的 Prompt：**\n\n{used_prompt}",
-        advice,
-    )
+    # 优化建议
+    advice = result["advice"]
+
+    return cat_label, key_issue, sarcastic_display, review_display, review_detail, advice
 
 
 # ============================================================
@@ -143,7 +127,7 @@ with gr.Blocks(title="AI Agent - 评论分析演示") as demo:
         # Tab 1：单条分析
         # ========================
         with gr.TabItem("单条评论分析"):
-            gr.Markdown("### 逐条分析 — 展示 Function Calling 完整链路")
+            gr.Markdown("### 逐条分析 — Function Calling + 反话检测 + 情感校验")
 
             with gr.Row():
                 with gr.Column(scale=2):
@@ -154,33 +138,38 @@ with gr.Blocks(title="AI Agent - 评论分析演示") as demo:
                     )
                 with gr.Column(scale=1):
                     submit_single = gr.Button("提交分析", variant="primary")
-                    gr.Examples(examples=SINGLE_EXAMPLES, inputs=input_single, label="预设示例")
+                    gr.Examples(examples=SINGLE_EXAMPLES, inputs=input_single, label="预设示例（含反话）")
 
             gr.Markdown("---")
 
-            gr.Markdown("#### 第 1 步：意图识别（Function Calling）")
+            gr.Markdown("#### Step 1：Function Calling — 分类 + 反话检测")
             with gr.Row():
                 with gr.Column(scale=1):
                     cat_out = gr.Textbox(label="评论类型", interactive=False)
                 with gr.Column(scale=2):
                     key_out = gr.Textbox(label="核心问题/亮点", interactive=False)
-            with gr.Accordion("查看大模型返回的原始 Function Calling JSON", open=False):
-                step1_json = gr.Code(label="tool_call.arguments", language="json")
+                with gr.Column(scale=1):
+                    sarcastic_out = gr.Textbox(label="反话检测", interactive=False)
 
-            gr.Markdown("#### 第 2 步：生成优化建议（Prompt Engineering）")
-            with gr.Accordion("查看发给大模型的 Prompt", open=False):
-                prompt_out = gr.Markdown()
+            gr.Markdown("#### Step 2：情感极性校验 — 独立验证")
+            with gr.Row():
+                with gr.Column(scale=1):
+                    review_flag_out = gr.Textbox(label="人工复核", interactive=False)
+                with gr.Column(scale=2):
+                    review_note_out = gr.Textbox(label="复核原因", interactive=False)
+
+            gr.Markdown("#### Step 3：优化建议生成")
             advice_out = gr.Markdown(label="优化建议")
 
             submit_single.click(
                 fn=process_single,
                 inputs=input_single,
-                outputs=[cat_out, key_out, step1_json, prompt_out, advice_out],
+                outputs=[cat_out, key_out, sarcastic_out, review_flag_out, review_note_out, advice_out],
             )
             input_single.submit(
                 fn=process_single,
                 inputs=input_single,
-                outputs=[cat_out, key_out, step1_json, prompt_out, advice_out],
+                outputs=[cat_out, key_out, sarcastic_out, review_flag_out, review_note_out, advice_out],
             )
 
         # ========================
@@ -234,4 +223,4 @@ with gr.Blocks(title="AI Agent - 评论分析演示") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(share=True)
+    demo.launch()
