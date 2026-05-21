@@ -154,7 +154,7 @@
 
   <!-- 预设示例卡片 -->
   <div class="examples-section">
-    <h2>点击查看 Agent 完整执行过程（基于真实 API 调用结果）</h2>
+    <h2>单条分析 — 点击查看 Agent 完整执行过程（基于真实 API 调用结果）</h2>
     <div class="example-cards">
       <div class="example-card" id="card0">
         <div class="icon">😤</div><div class="label">投诉类示例</div>
@@ -171,7 +171,18 @@
     </div>
   </div>
 
-  <!-- 结果展示（初始隐藏） -->
+  <!-- 批量分析卡片 -->
+  <div class="examples-section">
+    <h2>批量分析 — 点击查看 5 条评论的汇总报表</h2>
+    <div class="example-cards">
+      <div class="example-card" id="cardBatch">
+        <div class="icon">📊</div><div class="label">批量分析报表</div>
+        <div class="text">5条评论 → 占比统计 + 投诉清单 + 优先级建议</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 单条结果展示（初始隐藏） -->
   <div class="results" id="results">
     <div class="step-block">
       <div class="step-header">
@@ -222,6 +233,50 @@
     </div>
   </div>
 
+  <!-- 批量结果展示（初始隐藏） -->
+  <div class="results" id="batchResults">
+    <div class="step-block">
+      <div class="step-header">
+        <div class="step-num">📊</div>
+        <div class="step-title">批量分析 — 输入 5 条评论，逐条调用 analyze_review 后汇总</div>
+      </div>
+      <div class="info-row">
+        <div class="info-item">
+          <div class="key">评论总数</div>
+          <div class="val" id="batchTotal"></div>
+        </div>
+        <div class="info-item">
+          <div class="key">优先处理</div>
+          <div class="val"><span class="tag" id="batchPriorityTag"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step-block">
+      <div class="step-header">
+        <div class="step-num">1</div>
+        <div class="step-title">各类型占比统计</div>
+      </div>
+      <div id="batchSummary"></div>
+    </div>
+
+    <div class="step-block">
+      <div class="step-header">
+        <div class="step-num">2</div>
+        <div class="step-title">投诉问题清单（所有 complaint 的 key_issue）</div>
+      </div>
+      <div class="advice-box" id="batchComplaints"></div>
+    </div>
+
+    <div class="step-block" style="border-color: #38bdf8;">
+      <div class="step-header">
+        <div class="step-num" style="background:#34d399;">3</div>
+        <div class="step-title">优先级建议（按占比排序，告诉商家先解决什么）</div>
+      </div>
+      <div class="advice-box" id="batchPriorityInfo"></div>
+    </div>
+  </div>
+
   <!-- 初始提示 -->
   <div class="demo-tip" id="demoTip">
     <div class="big">☝</div>
@@ -231,37 +286,11 @@
 
 </div>
 
-<!-- ============================================================
-     数据层：用 <script type="application/json"> 存放示例数据
-     好处：JSON 对内部双引号天然转义为 \"，不会破坏 JS 语法
-     ============================================================ -->
-<script type="application/json" id="examplesData">
-[
-  {
-    "review": "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息",
-    "category": "complaint",
-    "key_issue": "发货速度极慢，等待一周未到货，且客服不回复消息",
-    "advice": "针对您提到的【发货速度极慢、等待一周未到货、客服不回复】的投诉，以下是3条具体且可落地的改进建议：\n\n1. 建立承诺时效+实时预警机制\n   - 在商品详情页明确标注最晚发货时间（如：48小时内发货）\n   - 接入ERP系统设置超时预警：超过承诺时间自动提醒仓库和客服\n   - 自动触发补偿（如发放5元优惠券或赠送小礼品）\n\n2. 设置客服响应SLA\n   - 强制自动回复：所有客户消息在10秒内必须由机器人回复\n   - 人工响应时效考核：首次响应不超过30分钟，问题解决不超过4小时\n   - 离线时段自动转工单，确保24小时内有人跟进\n\n3. 实施物流透明化+主动安抚策略\n   - 发货后自动推送物流节点（已揽收→已出库→派送中）\n   - 物流超72小时未更新时，系统自动道歉+补偿\n   - 设置催单绿色通道，标记高优先级2小时内处理\n\n总结：承诺清晰、响应及时、主动安抚，才能将投诉转化为信任。"
-  },
-  {
-    "review": "这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！",
-    "category": "praise",
-    "key_issue": "耳机降噪效果出色，地铁噪音完全隔绝，用户强烈推荐",
-    "advice": "收到这样的好评，说明你的产品在【极致降噪】这个核心卖点上已经建立了很强的用户认知。为了保持并放大这一优势，建议采取【场景化深度绑定 + 技术可视化传播】的策略：\n\n1. 将【地铁噪音】这个痛点场景升级为【全场景降噪体验】\n   - 制作对比视频：通勤/办公室/居家场景下佩戴前后对比\n   - 展示周围人声、键盘声被过滤，用户能专注工作\n\n2. 用户证言收集\n   - 在商品详情页展示不同场景下的真实反馈\n   - 如：戴着它在高铁上睡觉，完全听不见隔壁小孩哭闹\n\n3. 技术科普建立壁垒\n   - 介绍【前馈+后馈双麦克风混合降噪技术】\n   - 说明如何精准捕捉并抵消地铁、飞机等低频噪音\n\n总结：不要只停留在【地铁降噪好】，要引导用户想象——既然地铁那么吵都能搞定，那办公室、咖啡厅、家里一定更没问题。"
-  },
-  {
-    "review": "建议你们加一个深色模式，晚上刷商品太刺眼了",
-    "category": "suggestion",
-    "key_issue": "建议增加深色模式，解决夜间浏览商品时屏幕刺眼的问题",
-    "advice": "针对用户提出的【增加深色模式以解决夜间浏览刺眼问题】的建议：\n\n一、技术可行性\n- 前端：主流框架（React/Vue）通过CSS变量或主题切换库可实现，开发成本低\n- 后端：增加用户配置表字段（theme_preference），改动极小\n- 兼容性：需测试不同浏览器及设备的显示效果\n- 预估投入：设计1-2周，开发3-5天，测试2天\n\n二、回应方向\n1. 感谢认可：非常感谢您的建议！深色模式是提升夜间使用体验的重要功能\n2. 说明进展：团队正在评估技术方案，预计下个版本上线\n3. 临时替代方案：建议先尝试手机系统深色模式或开启护眼模式/夜间滤镜\n4. 邀请内测：如果您愿意参与内测，我们将优先为您开放测试权限\n\n三、附加建议\n- 分阶段上线：先基础版（切换背景/文字色），再迭代细节\n- 智能切换：支持跟随系统主题自动切换\n- 用户教育：上线后引导用户开启并强调护眼价值"
-  }
-]
-</script>
-
+<script src="demo-data.js"></script>
 <script>
 (function() {
-  // ---- 从 JSON 数据块安全读取示例数据（不会有引号冲突）----
-  var examples = JSON.parse(document.getElementById('examplesData').textContent);
+  // ---- 数据来自 demo-data.js 中的 DEMO_EXAMPLES 全局变量 ----
+  var examples = DEMO_EXAMPLES;
 
   var categoryMap = {
     complaint:  { label: '投诉', cls: 'tag-complaint' },
@@ -269,10 +298,11 @@
     suggestion: { label: '建议', cls: 'tag-suggestion' }
   };
 
-  // ---- 给三张卡片绑定点击事件（不用 onclick 属性）----
+  // ---- 给卡片绑定点击事件 ----
   document.getElementById('card0').addEventListener('click', function() { showExample(0); });
   document.getElementById('card1').addEventListener('click', function() { showExample(1); });
   document.getElementById('card2').addEventListener('click', function() { showExample(2); });
+  document.getElementById('cardBatch').addEventListener('click', showBatch);
 
   window.showExample = function(idx) {
     var ex = examples[idx];
@@ -281,9 +311,11 @@
     ['card0','card1','card2'].forEach(function(id, i) {
       document.getElementById(id).classList.toggle('active', i === idx);
     });
+    document.getElementById('cardBatch').classList.remove('active');
 
     // 隐藏初始提示，显示结果面板
     document.getElementById('demoTip').style.display = 'none';
+    document.getElementById('batchResults').classList.remove('show');
     document.getElementById('results').classList.add('show');
 
     // ---- Step 1 数据填充 ----
@@ -317,6 +349,79 @@
 
     // 滚动到结果区
     document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // ---- 批量分析 ----
+  window.showBatch = function() {
+    // 高亮批量卡片
+    ['card0','card1','card2'].forEach(function(id) {
+      document.getElementById(id).classList.remove('active');
+    });
+    document.getElementById('cardBatch').classList.add('active');
+
+    // 显示批量结果面板，隐藏单条结果面板
+    document.getElementById('demoTip').style.display = 'none';
+    document.getElementById('results').classList.remove('show');
+    document.getElementById('batchResults').classList.add('show');
+
+    // ---- 批量数据（预计算好的，来自真实 API 调用）----
+    var total = 5;
+    var summary = {
+      complaint:  { count: 2, percentage: 40.0 },
+      praise:     { count: 2, percentage: 40.0 },
+      suggestion: { count: 1, percentage: 20.0 }
+    };
+    var complaintIssues = [
+      '发货速度极慢，等待一周未到货，且客服不回复消息',
+      '衣服颜色与图片相差太多，导致退货，另一件尚可'
+    ];
+    var priority = 'complaint';
+    var priorityReason = '投诉类占比最高（40.0%），与好评并列但投诉影响更大，需优先处理';
+
+    // ---- 填充数据 ----
+    document.getElementById('batchTotal').textContent = total + ' 条';
+
+    var pTag = document.getElementById('batchPriorityTag');
+    pTag.textContent = '投诉';
+    pTag.className = 'tag tag-complaint';
+
+    // 各类型占比（带简易柱状图）
+    var labelMap = { complaint: '投诉', praise: '好评', suggestion: '建议' };
+    var colors = { complaint: '#fca5a5', praise: '#86efac', suggestion: '#93c5fd' };
+    var html = '';
+    for (var cat in summary) {
+      var d = summary[cat];
+      var barW = Math.max(d.percentage * 3, 2); // 百分比 x 3 = 条形宽度(px)，最小 2px
+      html += '<div style="margin-bottom:12px;">';
+      html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px;">';
+      html += '<span>' + labelMap[cat] + '</span>';
+      html += '<span><b>' + d.count + '</b> 条 (' + d.percentage + '%)</span>';
+      html += '</div>';
+      html += '<div style="background:#0f172a;border-radius:4px;height:20px;overflow:hidden;">';
+      html += '<div style="background:' + colors[cat] + ';height:100%;width:' + barW + 'px;border-radius:4px;min-width:2px;"></div>';
+      html += '</div></div>';
+    }
+    document.getElementById('batchSummary').innerHTML = html;
+
+    // 投诉清单
+    var complaintHtml = '';
+    for (var i = 0; i < complaintIssues.length; i++) {
+      complaintHtml += '<div style="padding:6px 0;border-bottom:1px solid #1e293b;">';
+      complaintHtml += (i + 1) + '. ' + complaintIssues[i];
+      complaintHtml += '</div>';
+    }
+    document.getElementById('batchComplaints').innerHTML =
+      complaintHtml || '无投诉，用户满意度良好';
+
+    // 优先级建议
+    document.getElementById('batchPriorityInfo').innerHTML =
+      '<b>优先处理：投诉类</b><br><br>' +
+      priorityReason + '<br><br>' +
+      '建议：先将投诉类问题按 key_issue 归类，找出共性（如物流、客服），' +
+      '由运营团队逐项制定改进方案并设定 SLA。';
+
+    // 滚动到批量结果区
+    document.getElementById('batchResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 })();
 </script>

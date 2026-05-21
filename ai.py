@@ -304,23 +304,166 @@ def analyze_review(review_text):
 
 
 # ====================================================================
-# 第四步：测试（只在直接运行本文件时执行）
+# 进阶：批量分析函数（Agent 的"批处理模式"）
+# ====================================================================
+# 实际业务中不是一条条分析的，而是一批评论一起处理，然后出报表。
+#
+# 数据流：
+#   评论列表 → 逐条调用 analyze_review → 汇总统计 → 输出结构化报表
+
+def batch_analyze(reviews):
+    """
+    输入：评论列表，例如 ["发货太慢", "质量真好", "建议加个功能"]
+    输出：结构化汇总报表 dict
+
+    输出结构示例：
+    {
+        "total": 3,
+        "summary": {
+            "complaint":  {"count": 1, "percentage": 33.3},
+            "praise":     {"count": 1, "percentage": 33.3},
+            "suggestion": {"count": 1, "percentage": 33.3}
+        },
+        "complaint_issues": ["发货太慢"],
+        "priority": "complaint",
+        "priority_reason": "投诉类占比最高（33.3%），需优先处理",
+        "details": [
+            {"review": "发货太慢", "category": "complaint", ...},
+            ...
+        ]
+    }
+    """
+    total = len(reviews)
+    if total == 0:
+        return {"total": 0, "summary": {}, "complaint_issues": [],
+                "priority": None, "priority_reason": "无评论数据", "details": []}
+
+    # ============================================================
+    # 第 1 步：逐条调用 analyze_review，收集所有结果
+    # ============================================================
+    results = []
+    for review in reviews:
+        r = analyze_review(review)
+        results.append(r)
+
+    # ============================================================
+    # 第 2 步：按 category 分组统计
+    # ============================================================
+    # 初始化三个分类的计数器
+    bins = {"complaint": [], "praise": [], "suggestion": []}
+
+    for r in results:
+        cat = r["category"]
+        if cat in bins:
+            bins[cat].append(r)
+        # 如果 category 不在 bins 里（理论上不会发生，enum 限定了三选一），
+        # 就跳过，保证程序不会崩
+
+    # ============================================================
+    # 第 3 步：计算各类型占比
+    # ============================================================
+    summary = {}
+    for cat_name in ["complaint", "praise", "suggestion"]:
+        count = len(bins[cat_name])
+        summary[cat_name] = {
+            "count":      count,
+            "percentage": round(count / total * 100, 1)  # 保留 1 位小数
+        }
+
+    # ============================================================
+    # 第 4 步：提取所有 complaint 的 key_issue（投诉清单）
+    # ============================================================
+    # 这是老板/面试官最爱看的东西：一眼看到所有投诉在说什么
+    complaint_issues = [r["key_issue"] for r in bins["complaint"]]
+
+    # ============================================================
+    # 第 5 步：决定优先级（按占比排序，谁排第一就优先解决谁）
+    # ============================================================
+    # 排序规则：先按 count 降序，count 相同按 complaint > suggestion > praise
+    priority_order = ["complaint", "suggestion", "praise"]
+    sorted_cats = sorted(
+        summary.keys(),
+        key=lambda c: (summary[c]["count"], -priority_order.index(c)),
+        reverse=True
+    )
+    top_cat = sorted_cats[0]
+
+    priority_label_map = {
+        "complaint":  "投诉类",
+        "praise":     "好评类",
+        "suggestion": "建议类"
+    }
+
+    priority_reason = (
+        f"{priority_label_map[top_cat]}占比最高"
+        f"（{summary[top_cat]['percentage']}%），需优先处理"
+    )
+
+    # ============================================================
+    # 第 6 步：打包返回
+    # ============================================================
+    return {
+        "total":            total,
+        "summary":          summary,
+        "complaint_issues": complaint_issues,
+        "priority":         top_cat,
+        "priority_reason":  priority_reason,
+        "details":          results,
+    }
+
+
+# ====================================================================
+# 测试（只在直接运行本文件时执行）
 # ====================================================================
 
 if __name__ == "__main__":
     """
-    __name__ == "__main__" 是什么意思？
-      - 当你直接运行 `python ai.py` 时，__name__ 的值是 "__main__"，
-        所以这个 if 里面的代码会执行（做测试）
-      - 当你在别的文件里 `from ai import analyze_review` 时，
-        __name__ 的值是 "ai"，这个 if 里的代码就不会执行
-      - 这是一个好习惯：既可以直接跑测试，又可以当库被别人引用
+    运行方式：python ai.py
+
+    测试内容：
+      1. 单条评论分析（原始功能）
+      2. 批量评论分析（新功能）
     """
+
+    # ---- 单条测试 ----
+    print("=" * 60)
+    print("  单条评论分析测试")
+    print("=" * 60)
+
     review = "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息"
     result = analyze_review(review)
 
-    print("=" * 50)
     print(f"  评论类型：{result['category']}")
     print(f"  核心问题：{result['key_issue']}")
     print(f"  优化建议：\n{result['advice']}")
-    print("=" * 50)
+
+    # ---- 批量测试 ----
+    print("\n" + "=" * 60)
+    print("  批量评论分析测试")
+    print("=" * 60)
+
+    test_reviews = [
+        "东西质量还行，但是发货太慢了，等了一周还没到，客服也不回消息",
+        "这个耳机的降噪效果绝了，戴上以后地铁噪音完全听不见，推荐！",
+        "建议你们加一个深色模式，晚上刷商品太刺眼了",
+        "买了两件衣服，一件颜色跟图片差太多退货了，另一件还行",
+        "快递包装很好，还送了小礼品，客服态度也特别好",
+    ]
+
+    report = batch_analyze(test_reviews)
+
+    print(f"  共 {report['total']} 条评论\n")
+
+    print("  各类型占比：")
+    for cat_name, data in report["summary"].items():
+        label = {"complaint": "投诉", "praise": "好评", "suggestion": "建议"}[cat_name]
+        bar = "█" * int(data["percentage"] / 5)  # 简易柱状图
+        print(f"    {label}: {data['count']}条 ({data['percentage']}%) {bar}")
+
+    print(f"\n  投诉清单：")
+    for i, issue in enumerate(report["complaint_issues"], 1):
+        print(f"    {i}. {issue}")
+
+    print(f"\n  优先处理：{report['priority']}")
+    print(f"  原因：{report['priority_reason']}")
+    print("=" * 60)
